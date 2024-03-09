@@ -9,8 +9,16 @@ pub struct Span {
 }
 
 impl Span {
+    /// Span for first character in a new file
+    pub const fn zero() -> Self {
+        Self {
+            start: LineCol { line: 0, col: 0 },
+            end: LineCol { line: 0, col: 0 },
+        }
+    }
+
     /// Span for a single character
-    pub fn single(pos: LineCol) -> Self {
+    pub const fn single(pos: LineCol) -> Self {
         Self {
             start: pos,
             end: pos,
@@ -18,20 +26,31 @@ impl Span {
     }
 
     /// Extends the span with a sequence of characters
-    pub fn extend_with(&mut self, seq: String){
-        for ch in seq.chars() {
-            if Rules::line_break(ch) {
-                self.end.line = 0;
-                self.end.col += 1;
-            } else {
-                self.end.col += 1;
-            }
-        }
+    pub fn extend_with(&mut self, seq: String) {
+        self.end.extend_with(seq);
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct LineCol {
     pub line: usize,
-    pub col: usize
+    pub col: usize,
+}
+
+impl LineCol {
+    pub const fn zero() -> Self {
+        LineCol { line: 0, col: 0 }
+    }
+
+    /// Extends the Pos with a sequence of characters
+    pub fn extend_with(&mut self, seq: String) {
+        for ch in seq.chars() {
+            if Rules::line_break(ch) {
+                self.line = 0;
+                self.col += 1;
+            } else {
+                self.col += 1;
+            }
+        }
+    }
 }

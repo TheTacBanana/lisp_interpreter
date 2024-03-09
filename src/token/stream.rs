@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use super::Token;
+use super::{Token, TokenKind};
 
 pub type TokenStream<T> = VecDeque<T>;
 
@@ -8,6 +8,6 @@ pub trait TokenStreamExt {
 
 }
 
-impl<T : Clone> TokenStreamExt for TokenStream<Token<T>> {
+impl<T : TokenKind + Clone> TokenStreamExt for TokenStream<Token<T>> {
 
 }

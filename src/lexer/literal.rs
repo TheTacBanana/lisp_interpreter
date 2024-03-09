@@ -1,6 +1,6 @@
 use super::token::LexerTokenError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NumericLiteral {
     Float(String),
     Dec(String),
@@ -26,10 +26,11 @@ impl NumericLiteral {
         }
     }
 
-    pub fn push_to_inner(&mut self, ch: char) -> Result<(), LexerTokenError> {
+    pub fn push_to_inner(mut self, ch: char) -> Result<Self, (Self, LexerTokenError)> {
         let mut char_error = None;
+        let len = self.inner().len();
 
-        let mut next = match (*self, self.inner().len(), ch) {
+        self = match (self, len, ch) {
             (Self::Bin(s), 1, 'b' | 'B') => Self::Bin(s),
             (Self::Bin(s), 1, 'o' | 'O') => Self::Oct(s),
             (Self::Bin(s), 1, 'd' | 'D') => Self::Dec(s),
@@ -69,11 +70,10 @@ impl NumericLiteral {
                 Self::Float(s)
             }
         };
-        next.inner().push(ch);
-        if let Some(err) = char_error {
-            Err(err)
-        } else {
-            Ok(())
+        self.inner().push(ch);
+        match char_error {
+            Some(err) => Err((self, err)),
+            None => Ok(self),
         }
     }
 
