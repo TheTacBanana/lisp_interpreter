@@ -35,6 +35,13 @@ impl Rules {
         ch == '#'
     }
 
+    pub fn boolean(ch: char) -> bool {
+        match ch {
+            't' | 'T' | 'f' | 'F' => true,
+            _ => false,
+        }
+    }
+
     pub fn start_numeric(ch: char) -> bool {
         match ch {
             '0'..='9' | '#' => true,
@@ -52,6 +59,10 @@ impl Rules {
             | "return" | "esc" | "space" | "delete" => true,
             _ => false,
         }
+    }
+
+    pub fn character(_ch: char) -> bool {
+        true
     }
 
     pub fn start_string(ch: char) -> bool {

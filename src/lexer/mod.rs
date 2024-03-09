@@ -63,6 +63,7 @@ impl Lexer {
 
     fn read_next_token(&mut self) -> Result<LexerToken, LexerErr> {
         let mut cur_token = if let Some(ch) = self.take_next_char() {
+            self.file_pos.extend_with(ch.to_string());
             self.match_new(ch).unwrap() // TODO: Remove unwrap
         } else {
             return Ok(self.start_new_token(LexerTokenKind::EOF));
@@ -70,22 +71,24 @@ impl Lexer {
 
         use LexerTokenKind as Token;
 
-        while let Some(ch) = self.take_next_char() {
-            self.file_pos.extend_with(ch.to_string());
-            cur_token.span.extend_with(ch.to_string());
+        while let Some(&ch) = self.peek_next_char() {
+            let consume = match (cur_token.inner(), ch) {
+                (Token::Whitespace(_), w) if Rules::whitespace(w) => true,
+                (Token::Boolean(_), b) if Rules::boolean(b) => true,
+                (Token::Identifer(_), i) if Rules::identifier(i) => true,
 
-            match (cur_token.inner(), ch) {
-                (Token::Whitespace(_), w) if Rules::whitespace(w) => {
-                    (*cur_token).push_to_inner(w);
-                }
-                (Token::Identifer(_), i) if Rules::identifier(i) => {
-                    (*cur_token).push_to_inner(i);
-                }
-                _ => (),
-            }
+                (Token::Character(cs), '\\') if cs.len() == 1 => true,
+                (Token::Character(_), _) => true,
 
-            if self.peek_next_char().is_some_and(|d| Rules::delimiter(*d)) && !Rules::delimiter(ch)
-            {
+                _ => false,
+            };
+
+            if consume {
+                (*cur_token).push_to_inner(ch);
+                self.take_next_char();
+                self.file_pos.extend_with(ch.to_string());
+                cur_token.span.extend_with(ch.to_string());
+            } else {
                 break;
             }
         }
@@ -98,9 +101,6 @@ impl Lexer {
             (w, _) if Rules::whitespace(w) => {
                 Ok(self.start_new_token(LexerTokenKind::Whitespace(w.to_string())))
             }
-            (i, _) if Rules::start_identifier(i) => {
-                Ok(self.start_new_token(LexerTokenKind::Identifer(i.to_string())))
-            }
             (b, Some('t' | 'T' | 'f' | 'F')) if Rules::start_boolean(b) => {
                 Ok(self.start_new_token(LexerTokenKind::Boolean(b.to_string())))
             }
@@ -109,6 +109,9 @@ impl Lexer {
             }
             (n, _) if Rules::start_numeric(n) => {
                 Ok(self.start_new_token(LexerTokenKind::Numeric(NumericLiteral::new(n))))
+            }
+            (i, _) if Rules::start_identifier(i) => {
+                Ok(self.start_new_token(LexerTokenKind::Identifer(i.to_string())))
             }
             (s, _) if Rules::start_string(s) => {
                 Ok(self.start_new_token(LexerTokenKind::String(s.to_string())))
@@ -137,8 +140,8 @@ impl Lexer {
 }
 
 pub struct LexResult {
-    tokens: TokenStream<LexerToken>,
-    errors: Vec<(usize, LexerTokenError)>,
+    pub tokens: TokenStream<LexerToken>,
+    pub errors: Vec<(usize, LexerTokenError)>,
 }
 
 mod test {
@@ -186,6 +189,35 @@ mod test {
         " \n ",
         [
             LexerTokenKind::Whitespace(" \n ".into()),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        identifer,
+        "alpha",
+        [
+            LexerTokenKind::Identifer("alpha".into()),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        boolean,
+        "#f #t",
+        [
+            LexerTokenKind::Boolean("#f".into()),
+            LexerTokenKind::Whitespace(" ".into()),
+            LexerTokenKind::Boolean("#t".into()),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        character,
+        "#\\*",
+        [
+            LexerTokenKind::Character("#\\*".into()),
             LexerTokenKind::EOF
         ]
     );
