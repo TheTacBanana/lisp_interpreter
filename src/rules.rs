@@ -66,7 +66,21 @@ impl Rules {
     }
 
     pub fn start_string(ch: char) -> bool {
-        ch == '\"'
+        ch == '"'
+    }
+
+    pub fn string(ch: char) -> bool {
+        match ch {
+            '"' | '\\' => false,
+            _ => true
+        }
+    }
+
+    pub fn escaped_char(ch: char) -> bool {
+        match ch {
+            'a' | 'b' | 't' | 'n' | 'v' | 'f' | 'r' | '"' | '\\' => true,
+            _ => false,
+        }
     }
 
     pub fn start_symbol(ch: char) -> bool {

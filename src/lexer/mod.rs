@@ -52,9 +52,6 @@ impl Lexer {
             }
         }
 
-        println!("{:?}", self.tokens);
-        println!("{:?}", self.errors);
-
         LexResult {
             tokens: VecDeque::from(self.tokens),
             errors: self.errors,
@@ -69,31 +66,60 @@ impl Lexer {
             return Ok(self.start_new_token(LexerTokenKind::EOF));
         };
 
+        let mut err = None;
+
         use LexerTokenKind as Token;
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum State {
+            Break,
+            Consume,
+            ConsumeAndBreak,
+        }
 
-        while let Some(&ch) = self.peek_next_char() {
-            let consume = match (cur_token.inner(), ch) {
-                (Token::Whitespace(_), w) if Rules::whitespace(w) => true,
-                (Token::Boolean(_), b) if Rules::boolean(b) => true,
-                (Token::Identifer(_), i) if Rules::identifier(i) => true,
+        loop {
+            let ch = self.peek_next_char().map(|c| *c);
+            let state = match (cur_token.inner(), ch) {
+                (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
+                (Token::Boolean(_), Some(b)) if Rules::boolean(b) => State::Consume,
+                (Token::Identifer(_), Some(i)) if Rules::identifier(i) => State::Consume,
 
-                (Token::Character(cs), '\\') if cs.len() == 1 => true,
-                (Token::Character(_), _) => true,
+                (Token::Character(cs), Some('\\')) if cs.len() == 1 => State::Consume,
+                (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => State::Consume,
 
-                _ => false,
+                (Token::String(_), None) => {
+                    err = Some(LexerTokenError::EOFInStringLiteral);
+                    State::Break
+                }
+                (Token::String(s), Some(c)) if s.chars().last().unwrap() == '\\' => {
+                    dbg!(c);
+                    if !Rules::escaped_char(c) {
+                        err = Some(LexerTokenError::EscapeCharacterExpected);
+                    }
+                    State::Consume
+                }
+                (Token::String(_), Some('"')) => State::ConsumeAndBreak,
+                (Token::String(_), _) => State::Consume,
+
+                _ => State::Break,
             };
 
-            if consume {
+            if let (Some(ch), State::Consume | State::ConsumeAndBreak) = (ch, state) {
                 (*cur_token).push_to_inner(ch);
                 self.take_next_char();
                 self.file_pos.extend_with(ch.to_string());
                 cur_token.span.extend_with(ch.to_string());
-            } else {
+            }
+
+            if let State::Break | State::ConsumeAndBreak = state {
                 break;
             }
         }
 
-        Ok(cur_token)
+        if let Some(err) = err {
+            Err(cur_token.with_error(err))
+        } else {
+            Ok(cur_token)
+        }
     }
 
     fn match_new(&self, ch: char) -> Result<LexerToken, ()> {
@@ -110,11 +136,11 @@ impl Lexer {
             (n, _) if Rules::start_numeric(n) => {
                 Ok(self.start_new_token(LexerTokenKind::Numeric(NumericLiteral::new(n))))
             }
-            (i, _) if Rules::start_identifier(i) => {
-                Ok(self.start_new_token(LexerTokenKind::Identifer(i.to_string())))
-            }
             (s, _) if Rules::start_string(s) => {
                 Ok(self.start_new_token(LexerTokenKind::String(s.to_string())))
+            }
+            (i, _) if Rules::start_identifier(i) => {
+                Ok(self.start_new_token(LexerTokenKind::Identifer(i.to_string())))
             }
             (s, _) if Rules::start_symbol(s) => {
                 Ok(self.start_new_token(LexerTokenKind::Symbol(s.to_string())))
@@ -159,8 +185,11 @@ mod test {
                 let mut result = Lexer::from_string($s.to_string()).lex();
                 assert_eq!(result.tokens.len(), $tokens.len());
                 assert_eq!(result.errors.len(), 0);
-                let tokens_same = result.tokens.drain(..).zip($tokens).all(|(l, r)| (*l) == r);
-                assert!(tokens_same);
+                result
+                    .tokens
+                    .drain(..)
+                    .zip($tokens)
+                    .for_each(|(l, r)| assert_eq!((*l), r));
             }
         };
 
@@ -170,14 +199,17 @@ mod test {
                 let mut result = Lexer::from_string($s.to_string()).lex();
                 assert_eq!(result.tokens.len(), $tokens.len());
                 assert_eq!(result.errors.len(), $errors.len());
-                let tokens_same = result.tokens.drain(..).zip($tokens).all(|(l, r)| (*l) == r);
-                assert!(tokens_same);
-                let errors_same = result.errors.drain(..).zip($errors).all(
+                result
+                    .tokens
+                    .drain(..)
+                    .zip($tokens)
+                    .for_each(|(l, r)| assert_eq!((*l), r));
+                result.errors.drain(..).zip($errors).for_each(
                     |(l, r): ((usize, LexerTokenError), (usize, LexerTokenError))| {
-                        l.0 == r.0 && l.1 == r.1
+                        assert_eq!(l.0, r.0);
+                        assert_eq!(l.1, r.1);
                     },
                 );
-                assert!(errors_same);
             }
         };
     }
@@ -220,5 +252,37 @@ mod test {
             LexerTokenKind::Character("#\\*".into()),
             LexerTokenKind::EOF
         ]
+    );
+
+    lex_test!(
+        string,
+        "\"hello world\"",
+        [
+            LexerTokenKind::String("\"hello world\"".into()),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        escape_character,
+        "\"\\n\"",
+        [
+            LexerTokenKind::String("\"\\n\"".into()),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        escape_character_error,
+        "\"\\ \"",
+        [LexerTokenKind::String("\"\\ \"".into()), LexerTokenKind::EOF],
+        [(0, LexerTokenError::EscapeCharacterExpected)]
+    );
+
+    lex_test!(
+        eof_in_string_error,
+        "\"uwu :3",
+        [LexerTokenKind::String("\"uwu :3".into()), LexerTokenKind::EOF],
+        [(0, LexerTokenError::EOFInStringLiteral)]
     );
 }

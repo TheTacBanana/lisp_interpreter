@@ -41,6 +41,10 @@ impl TokenKind for LexerTokenKind {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum LexerTokenError {
+    /// Escape character expected after '\'
+    EscapeCharacterExpected,
+    /// End of file encountered in String Literal
+    EOFInStringLiteral,
     /// Invalid character used in a Float
     InvalidInFloat,
     /// Multiple points '.' have appeared in a FloatLiteral
