@@ -10,14 +10,15 @@ use crate::{
 };
 
 use self::{
-    literal::NumericLiteral,
-    token::{LexerErr, LexerToken, LexerTokenError, LexerTokenKind},
+    literal::NumericLiteral, result::LexResult, token::{LexerErr, LexerToken, LexerTokenError, LexerTokenKind}
 };
 
 pub mod literal;
 pub mod token;
+pub mod result;
 
 pub struct Lexer {
+    whole_file: String,
     file: VecDeque<char>,
     tokens: Vec<LexerToken>,
     errors: Vec<(usize, LexerTokenError)>,
@@ -27,6 +28,7 @@ pub struct Lexer {
 impl Lexer {
     pub fn from_string(contents: String) -> Self {
         Self {
+            whole_file: contents.clone(),
             file: contents.chars().collect(),
             tokens: Vec::default(),
             errors: Vec::default(),
@@ -53,6 +55,7 @@ impl Lexer {
         }
 
         LexResult {
+            file: self.whole_file,
             tokens: VecDeque::from(self.tokens),
             errors: self.errors,
         }
@@ -101,7 +104,6 @@ impl Lexer {
                         State::Break
                     }
                     (Token::String(s), Some(c)) if s.chars().last().unwrap() == '\\' => {
-                        dbg!(c);
                         if !Rules::escaped_char(c) {
                             err = Some(LexerTokenError::EscapeCharacterExpected);
                         }
@@ -210,11 +212,6 @@ impl Lexer {
             span: Span::single(self.file_pos),
         }
     }
-}
-
-pub struct LexResult {
-    pub tokens: TokenStream<LexerToken>,
-    pub errors: Vec<(usize, LexerTokenError)>,
 }
 
 #[cfg(test)]
