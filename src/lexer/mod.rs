@@ -217,13 +217,11 @@ pub struct LexResult {
     pub errors: Vec<(usize, LexerTokenError)>,
 }
 
+#[cfg(test)]
 mod test {
-    use crate::{
-        lexer::{
-            literal::NumericLiteral,
-            token::{LexerTokenError, LexerTokenKind},
-        },
-        token::TokenKind,
+    use crate::lexer::{
+        literal::NumericLiteral,
+        token::{LexerTokenError, LexerTokenKind},
     };
 
     use super::Lexer;
@@ -397,39 +395,15 @@ mod test {
             LexerTokenKind::Numeric(NumericLiteral::Float("200.394.334".into())),
             LexerTokenKind::EOF
         ],
-        [
-            (0, LexerTokenError::MultiplePointsInFloat)
-        ]
+        [(0, LexerTokenError::MultiplePointsInFloat)]
     );
 
-    // lex_test!(
-    //     symbols,
-    //     "()",
-    //     [
-    //         LexerTokenKind::Numeric(NumericLiteral::Float("200.394.334".into())),
-    //         LexerTokenKind::EOF
-    //     ],
-    //     [
-    //         (0, LexerTokenError::MultiplePointsInFloat)
-    //     ]
-    // );
-
-#[test]
-fn program(){
-  let mut result = Lexer::from_string("
-; this is a comment
-  (import (rnrs base)
-    (rnrs io ports)
-    (rnrs programs))
-(put-bytes (standard-output-port)
-    (call-with-port
-    (open-file-input-port
-    (cadr (command-line)))
-    get-bytes-all))".to_string()).lex();
-  println!("{:#?}",result.tokens.drain(..).map(|t| t.kind).collect::<Vec<_>>());
-  assert!(false)
-//   assert_eq!(result.tokens.len(),[LexerTokenKind::EOF].len());
-//   assert_eq!(result.errors.len(),0);
-//   result.tokens.drain(..).zip([LexerTokenKind::EOF]).for_each(|(l,r)|assert_eq!((*l),r));
-}
+    lex_test!(
+        comment,
+        "; this is a comment",
+        [
+            LexerTokenKind::Comment("; this is a comment".into()),
+            LexerTokenKind::EOF
+        ]
+    );
 }
