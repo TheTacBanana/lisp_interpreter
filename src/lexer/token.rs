@@ -17,6 +17,7 @@ pub enum LexerTokenKind{
     String(String),
     Symbol(String),
     EOF,
+    Comment(String),
 }
 
 impl TokenKind for LexerTokenKind {
@@ -27,6 +28,7 @@ impl TokenKind for LexerTokenKind {
             LexerTokenKind::Boolean(s) |
             LexerTokenKind::Character(s) |
             LexerTokenKind::String(s) |
+            LexerTokenKind::Comment(s) |
             LexerTokenKind::Symbol(s) => s,
             LexerTokenKind::Numeric(s) => s.inner(),
             LexerTokenKind::EOF => panic!(),
@@ -40,6 +42,7 @@ impl TokenKind for LexerTokenKind {
             LexerTokenKind::Boolean(s) |
             LexerTokenKind::Character(s) |
             LexerTokenKind::String(s) |
+            LexerTokenKind::Comment(s) |
             LexerTokenKind::Symbol(s) => s,
             LexerTokenKind::Numeric(s) => s.inner_mut(),
             LexerTokenKind::EOF => panic!(),
@@ -53,6 +56,7 @@ impl TokenKind for LexerTokenKind {
             LexerTokenKind::Boolean(s) |
             LexerTokenKind::Character(s) |
             LexerTokenKind::String(s) |
+            LexerTokenKind::Comment(s) |
             LexerTokenKind::Symbol(s) => s,
             LexerTokenKind::Numeric(s) => s.to_string(),
             LexerTokenKind::EOF => panic!(),
@@ -83,7 +87,7 @@ pub enum LexerTokenError {
 
 impl std::fmt::Display for LexerTokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self);
+        write!(f, "{:?}", self)?;
         Ok(())
     }
 }

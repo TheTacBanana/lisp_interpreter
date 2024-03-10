@@ -24,11 +24,11 @@ impl Rules {
     // TODO: Inline hex escape
     // TODO: Actual character checking?
     pub fn start_identifier(ch: char) -> bool {
-        !ch.is_control()
+        !ch.is_control() && !ch.is_numeric()
     }
 
     pub fn identifier(ch: char) -> bool {
-        !ch.is_control()
+        !ch.is_control() && !Rules::delimiter(ch)
     }
 
     pub fn start_boolean(ch: char) -> bool {
@@ -88,5 +88,9 @@ impl Rules {
             '(' | ')' | '[' | ']' | '#' | '\'' | '`' | ',' | '.' => true,
             _ => false,
         }
+    }
+
+    pub fn start_comment(ch: char) -> bool {
+        ch == ';'
     }
 }

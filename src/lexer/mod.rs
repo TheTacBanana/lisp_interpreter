@@ -60,8 +60,9 @@ impl Lexer {
 
     fn read_next_token(&mut self) -> Result<LexerToken, LexerErr> {
         let mut cur_token = if let Some(ch) = self.take_next_char() {
+            let temp = self.match_new(ch).unwrap(); // TODO: Remove unwrap
             self.file_pos.extend_with(ch.to_string());
-            self.match_new(ch).unwrap() // TODO: Remove unwrap
+            temp
         } else {
             return Ok(self.start_new_token(LexerTokenKind::EOF));
         };
@@ -82,6 +83,9 @@ impl Lexer {
             let state =
                 match (cur_token.inner(), ch) {
                     (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
+
+                    (Token::Comment(_), Some(n)) if Rules::line_break(n) => State::ConsumeAndBreak,
+                    (Token::Comment(_), Some(_)) => State::Consume,
 
                     (Token::Boolean(_), Some(b)) if Rules::boolean(b) => State::Consume,
 
@@ -179,11 +183,14 @@ impl Lexer {
             (s, _) if Rules::start_string(s) => {
                 Ok(self.start_new_token(LexerTokenKind::String(s.to_string())))
             }
-            (i, _) if Rules::start_identifier(i) => {
-                Ok(self.start_new_token(LexerTokenKind::Identifer(i.to_string())))
-            }
             (s, _) if Rules::start_symbol(s) => {
                 Ok(self.start_new_token(LexerTokenKind::Symbol(s.to_string())))
+            }
+            (s, _) if Rules::start_comment(s) => {
+                Ok(self.start_new_token(LexerTokenKind::Comment(s.to_string())))
+            }
+            (i, _) if Rules::start_identifier(i) => {
+                Ok(self.start_new_token(LexerTokenKind::Identifer(i.to_string())))
             }
             _ => Err(()),
         }
@@ -394,4 +401,35 @@ mod test {
             (0, LexerTokenError::MultiplePointsInFloat)
         ]
     );
+
+    // lex_test!(
+    //     symbols,
+    //     "()",
+    //     [
+    //         LexerTokenKind::Numeric(NumericLiteral::Float("200.394.334".into())),
+    //         LexerTokenKind::EOF
+    //     ],
+    //     [
+    //         (0, LexerTokenError::MultiplePointsInFloat)
+    //     ]
+    // );
+
+#[test]
+fn program(){
+  let mut result = Lexer::from_string("
+; this is a comment
+  (import (rnrs base)
+    (rnrs io ports)
+    (rnrs programs))
+(put-bytes (standard-output-port)
+    (call-with-port
+    (open-file-input-port
+    (cadr (command-line)))
+    get-bytes-all))".to_string()).lex();
+  println!("{:#?}",result.tokens.drain(..).map(|t| t.kind).collect::<Vec<_>>());
+  assert!(false)
+//   assert_eq!(result.tokens.len(),[LexerTokenKind::EOF].len());
+//   assert_eq!(result.errors.len(),0);
+//   result.tokens.drain(..).zip([LexerTokenKind::EOF]).for_each(|(l,r)|assert_eq!((*l),r));
+}
 }
