@@ -179,7 +179,7 @@ impl Lexer {
             (c, Some('\\')) if Rules::start_character(c) => {
                 Ok(self.start_new_token(LexerTokenKind::Character(c.to_string())))
             }
-            (n, a) if Rules::start_numeric(n) => Ok(self.start_new_token(LexerTokenKind::Numeric(
+            (n, a) if Rules::start_numeric(n, a.map(|c| *c)) => Ok(self.start_new_token(LexerTokenKind::Numeric(
                 NumericLiteral::new(n, a.map(|c| *c)),
             ))),
             (s, _) if Rules::start_string(s) => {

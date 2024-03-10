@@ -42,9 +42,12 @@ impl Rules {
         }
     }
 
-    pub fn start_numeric(ch: char) -> bool {
-        match ch {
-            '0'..='9' | '#' => true,
+    pub fn start_numeric(ch: char, ch2: Option<char>) -> bool {
+        match (ch, ch2) {
+            ('#', Some('b' | 'B' | 'o' | 'O' | 'd' | 'D' | 'x' | 'X')) => true,
+            ('0'..='9', Some('.')) => true,
+            ('0'..='9', Some(r)) if Rules::delimiter(r) => true,
+            ('0'..='9', None) => true,
             _ => false,
         }
     }
@@ -72,7 +75,7 @@ impl Rules {
     pub fn string(ch: char) -> bool {
         match ch {
             '"' | '\\' => false,
-            _ => true
+            _ => true,
         }
     }
 
