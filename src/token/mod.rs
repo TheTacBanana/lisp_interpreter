@@ -11,8 +11,10 @@ pub struct Token<T: TokenKind> {
     pub span: Span,
 }
 
-pub trait TokenKind {
+pub trait TokenKind : Sized{
+    fn inner(&self) -> &String;
     fn inner_mut(&mut self) -> &mut String;
+    fn to_string(self) -> String;
     fn push_to_inner(&mut self, ch: char) {
         self.inner_mut().push(ch);
     }
@@ -38,6 +40,12 @@ impl<T: TokenKind> Token<T> {
             token: self,
             err,
         }
+    }
+}
+
+impl <T: TokenKind + Clone> Token<T> {
+    pub fn map_inner(&mut self, f: impl FnOnce(T) -> T) {
+        self.kind = f(self.kind.clone())
     }
 }
 

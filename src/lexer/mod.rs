@@ -69,6 +69,7 @@ impl Lexer {
         let mut err = None;
 
         use LexerTokenKind as Token;
+        use NumericLiteral as NL;
         #[derive(Clone, Copy, PartialEq, Eq)]
         enum State {
             Break,
@@ -78,30 +79,69 @@ impl Lexer {
 
         loop {
             let ch = self.peek_next_char().map(|c| *c);
-            let state = match (cur_token.inner(), ch) {
-                (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
-                (Token::Boolean(_), Some(b)) if Rules::boolean(b) => State::Consume,
-                (Token::Identifer(_), Some(i)) if Rules::identifier(i) => State::Consume,
+            let state =
+                match (cur_token.inner(), ch) {
+                    (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
 
-                (Token::Character(cs), Some('\\')) if cs.len() == 1 => State::Consume,
-                (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => State::Consume,
+                    (Token::Boolean(_), Some(b)) if Rules::boolean(b) => State::Consume,
 
-                (Token::String(_), None) => {
-                    err = Some(LexerTokenError::EOFInStringLiteral);
-                    State::Break
-                }
-                (Token::String(s), Some(c)) if s.chars().last().unwrap() == '\\' => {
-                    dbg!(c);
-                    if !Rules::escaped_char(c) {
-                        err = Some(LexerTokenError::EscapeCharacterExpected);
+                    (Token::Identifer(_), Some(i)) if Rules::identifier(i) => State::Consume,
+
+                    (Token::Character(cs), Some('\\')) if cs.len() == 1 => State::Consume,
+                    (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => {
+                        State::Consume
                     }
-                    State::Consume
-                }
-                (Token::String(_), Some('"')) => State::ConsumeAndBreak,
-                (Token::String(_), _) => State::Consume,
 
-                _ => State::Break,
-            };
+                    (Token::String(_), None) => {
+                        err = Some(LexerTokenError::EOFInStringLiteral);
+                        State::Break
+                    }
+                    (Token::String(s), Some(c)) if s.chars().last().unwrap() == '\\' => {
+                        dbg!(c);
+                        if !Rules::escaped_char(c) {
+                            err = Some(LexerTokenError::EscapeCharacterExpected);
+                        }
+                        State::Consume
+                    }
+                    (Token::String(_), Some('"')) => State::ConsumeAndBreak,
+                    (Token::String(_), Some(_)) => State::Consume,
+
+                    (
+                        Token::Numeric(NL::Bin(s) | NL::Oct(s) | NL::Dec(s) | NL::Hex(s)),
+                        Some('b' | 'o' | 'd' | 'x' | 'B' | 'O' | 'D' | 'X'),
+                    ) if s.len() == 1 => {
+                        match ch.unwrap() {
+                            'b' | 'B' => cur_token
+                                .map_inner(|t| LexerTokenKind::Numeric(NL::Bin(t.to_string()))),
+                            'o' | 'O' => cur_token
+                                .map_inner(|t| LexerTokenKind::Numeric(NL::Oct(t.to_string()))),
+                            'd' | 'D' => cur_token
+                                .map_inner(|t| LexerTokenKind::Numeric(NL::Dec(t.to_string()))),
+                            'x' | 'X' => cur_token
+                                .map_inner(|t| LexerTokenKind::Numeric(NL::Hex(t.to_string()))),
+                            _ => (),
+                        }
+                        State::Consume
+                    }
+
+                    (Token::Numeric(NL::Float(_)), Some('0'..='9')) => State::Consume,
+                    (Token::Numeric(NL::Float(s) | NL::Dec(s)), Some('.')) => {
+                        if s.contains('.') {
+                            err = Some(LexerTokenError::MultiplePointsInFloat)
+                        }
+                        cur_token.map_inner(|t| LexerTokenKind::Numeric(NL::Float(t.to_string())));
+
+                        State::Consume
+                    }
+                    (Token::Numeric(NL::Bin(_)), Some('0' | '1')) => State::Consume,
+                    (Token::Numeric(NL::Oct(_)), Some('0'..='7')) => State::Consume,
+                    (Token::Numeric(NL::Dec(_)), Some('0'..='9')) => State::Consume,
+                    (Token::Numeric(NL::Hex(_)), Some('0'..='9' | 'a'..='f' | 'A'..='F')) => {
+                        State::Consume
+                    }
+
+                    _ => State::Break,
+                };
 
             if let (Some(ch), State::Consume | State::ConsumeAndBreak) = (ch, state) {
                 (*cur_token).push_to_inner(ch);
@@ -133,9 +173,9 @@ impl Lexer {
             (c, Some('\\')) if Rules::start_character(c) => {
                 Ok(self.start_new_token(LexerTokenKind::Character(c.to_string())))
             }
-            (n, _) if Rules::start_numeric(n) => {
-                Ok(self.start_new_token(LexerTokenKind::Numeric(NumericLiteral::new(n))))
-            }
+            (n, a) if Rules::start_numeric(n) => Ok(self.start_new_token(LexerTokenKind::Numeric(
+                NumericLiteral::new(n, a.map(|c| *c)),
+            ))),
             (s, _) if Rules::start_string(s) => {
                 Ok(self.start_new_token(LexerTokenKind::String(s.to_string())))
             }
@@ -172,7 +212,10 @@ pub struct LexResult {
 
 mod test {
     use crate::{
-        lexer::token::{LexerTokenError, LexerTokenKind},
+        lexer::{
+            literal::NumericLiteral,
+            token::{LexerTokenError, LexerTokenKind},
+        },
         token::TokenKind,
     };
 
@@ -183,6 +226,7 @@ mod test {
             #[test]
             fn $test() {
                 let mut result = Lexer::from_string($s.to_string()).lex();
+                println!("{:?}", result.tokens);
                 assert_eq!(result.tokens.len(), $tokens.len());
                 assert_eq!(result.errors.len(), 0);
                 result
@@ -236,11 +280,11 @@ mod test {
 
     lex_test!(
         boolean,
-        "#f #t",
+        "#f #T",
         [
             LexerTokenKind::Boolean("#f".into()),
             LexerTokenKind::Whitespace(" ".into()),
-            LexerTokenKind::Boolean("#t".into()),
+            LexerTokenKind::Boolean("#T".into()),
             LexerTokenKind::EOF
         ]
     );
@@ -275,14 +319,79 @@ mod test {
     lex_test!(
         escape_character_error,
         "\"\\ \"",
-        [LexerTokenKind::String("\"\\ \"".into()), LexerTokenKind::EOF],
+        [
+            LexerTokenKind::String("\"\\ \"".into()),
+            LexerTokenKind::EOF
+        ],
         [(0, LexerTokenError::EscapeCharacterExpected)]
     );
 
     lex_test!(
         eof_in_string_error,
         "\"uwu :3",
-        [LexerTokenKind::String("\"uwu :3".into()), LexerTokenKind::EOF],
+        [
+            LexerTokenKind::String("\"uwu :3".into()),
+            LexerTokenKind::EOF
+        ],
         [(0, LexerTokenError::EOFInStringLiteral)]
+    );
+
+    lex_test!(
+        bin_number,
+        "#b010101",
+        [
+            LexerTokenKind::Numeric(NumericLiteral::Bin("#b010101".into())),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        oct_number,
+        "#o01234567",
+        [
+            LexerTokenKind::Numeric(NumericLiteral::Oct("#o01234567".into())),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        dec_number,
+        "12394 #d12394",
+        [
+            LexerTokenKind::Numeric(NumericLiteral::Dec("12394".into())),
+            LexerTokenKind::Whitespace(" ".into()),
+            LexerTokenKind::Numeric(NumericLiteral::Dec("#d12394".into())),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        hex_number,
+        "#x0123456789abcdefABCDEF",
+        [
+            LexerTokenKind::Numeric(NumericLiteral::Hex("#x0123456789abcdefABCDEF".into())),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        float_number,
+        "200.394",
+        [
+            LexerTokenKind::Numeric(NumericLiteral::Float("200.394".into())),
+            LexerTokenKind::EOF
+        ]
+    );
+
+    lex_test!(
+        float_number_error,
+        "200.394.334",
+        [
+            LexerTokenKind::Numeric(NumericLiteral::Float("200.394.334".into())),
+            LexerTokenKind::EOF
+        ],
+        [
+            (0, LexerTokenError::MultiplePointsInFloat)
+        ]
     );
 }

@@ -20,7 +20,7 @@ pub enum LexerTokenKind{
 }
 
 impl TokenKind for LexerTokenKind {
-    fn inner_mut(&mut self) -> &mut String {
+    fn inner(&self) -> &String {
         match self {
             LexerTokenKind::Whitespace(s) |
             LexerTokenKind::Identifer(s) |
@@ -29,6 +29,32 @@ impl TokenKind for LexerTokenKind {
             LexerTokenKind::String(s) |
             LexerTokenKind::Symbol(s) => s,
             LexerTokenKind::Numeric(s) => s.inner(),
+            LexerTokenKind::EOF => panic!(),
+        }
+    }
+
+    fn inner_mut(&mut self) -> &mut String {
+        match self {
+            LexerTokenKind::Whitespace(s) |
+            LexerTokenKind::Identifer(s) |
+            LexerTokenKind::Boolean(s) |
+            LexerTokenKind::Character(s) |
+            LexerTokenKind::String(s) |
+            LexerTokenKind::Symbol(s) => s,
+            LexerTokenKind::Numeric(s) => s.inner_mut(),
+            LexerTokenKind::EOF => panic!(),
+        }
+    }
+
+    fn to_string(self) -> String {
+        match self {
+            LexerTokenKind::Whitespace(s) |
+            LexerTokenKind::Identifer(s) |
+            LexerTokenKind::Boolean(s) |
+            LexerTokenKind::Character(s) |
+            LexerTokenKind::String(s) |
+            LexerTokenKind::Symbol(s) => s,
+            LexerTokenKind::Numeric(s) => s.to_string(),
             LexerTokenKind::EOF => panic!(),
         }
     }
@@ -51,6 +77,8 @@ pub enum LexerTokenError {
     MultiplePointsInFloat,
     /// Invalid character used in an N-ary Literal
     InvalidInNAryLiteral(usize),
+    /// Point used in N-ary Literal
+    PointInNAryLiteral(usize),
 }
 
 impl std::fmt::Display for LexerTokenError {
