@@ -16,8 +16,8 @@ pub enum LexerTokenKind{
     Character(String),
     String(String),
     Symbol(String),
-    EOF,
     Comment(String),
+    EOF,
 }
 
 impl TokenKind for LexerTokenKind {
