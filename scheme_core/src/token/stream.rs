@@ -8,6 +8,6 @@ pub trait TokenStreamExt {
 
 }
 
-impl<T : TokenKind + Clone> TokenStreamExt for TokenStream<Token<T>> {
+// impl<T : TokenKind + Clone> TokenStreamExt for TokenStream<Token<T>> {
 
-}
+// }

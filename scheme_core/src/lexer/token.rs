@@ -20,8 +20,8 @@ pub enum LexerTokenKind {
     EOF,
 }
 
-impl TokenKind for LexerTokenKind {
-    fn inner(&self) -> &String {
+impl LexerTokenKind {
+    pub fn inner(&self) -> &String {
         match self {
             LexerTokenKind::Whitespace(s)
             | LexerTokenKind::Identifer(s)
@@ -35,7 +35,7 @@ impl TokenKind for LexerTokenKind {
         }
     }
 
-    fn inner_mut(&mut self) -> &mut String {
+    pub fn inner_mut(&mut self) -> &mut String {
         match self {
             LexerTokenKind::Whitespace(s)
             | LexerTokenKind::Identifer(s)
@@ -49,7 +49,7 @@ impl TokenKind for LexerTokenKind {
         }
     }
 
-    fn to_string(self) -> String {
+    pub fn to_string(self) -> String {
         match self {
             LexerTokenKind::Whitespace(s)
             | LexerTokenKind::Identifer(s)
@@ -63,9 +63,13 @@ impl TokenKind for LexerTokenKind {
         }
     }
 
-    fn the_same(&self, other: &Self) -> bool {
+    pub fn the_same(&self, other: &Self) -> bool {
         use std::mem::discriminant;
         discriminant(self) == discriminant(other)
+    }
+
+    pub fn push_to_inner(&mut self, ch: char) {
+        self.inner_mut().push(ch);
     }
 }
 

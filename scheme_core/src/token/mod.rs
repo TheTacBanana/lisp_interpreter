@@ -6,27 +6,25 @@ pub mod span;
 pub mod stream;
 
 #[derive(Debug, Clone)]
-pub struct Token<T: TokenKind> {
+pub struct Token<T> {
     pub kind: T,
     pub span: Span,
 }
 
 pub trait TokenKind : Sized{
-    fn inner(&self) -> &String;
-    fn inner_mut(&mut self) -> &mut String;
-    fn to_string(self) -> String;
-    fn push_to_inner(&mut self, ch: char) {
-        self.inner_mut().push(ch);
-    }
-    fn the_same(&self, other: &Self) -> bool;
+    // fn inner(&self) -> &String;
+    // fn inner_mut(&mut self) -> &mut String;
+    // fn to_string(self) -> String;
+
+    // fn the_same(&self, other: &Self) -> bool;
 }
 
-pub struct ErrorToken<T: TokenKind, E> {
+pub struct ErrorToken<T, E> {
     pub token: Token<T>,
     pub err: E,
 }
 
-impl<T: TokenKind> Token<T> {
+impl<T> Token<T> {
     pub fn inner(&self) -> &T {
         &self.kind
     }
@@ -43,13 +41,13 @@ impl<T: TokenKind> Token<T> {
     }
 }
 
-impl <T: TokenKind + Clone> Token<T> {
+impl <T: Clone> Token<T> {
     pub fn map_inner(&mut self, f: impl FnOnce(T) -> T) {
         self.kind = f(self.kind.clone())
     }
 }
 
-impl<T: TokenKind> Deref for Token<T> {
+impl<T> Deref for Token<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -57,13 +55,13 @@ impl<T: TokenKind> Deref for Token<T> {
     }
 }
 
-impl<T: TokenKind> DerefMut for Token<T> {
+impl<T> DerefMut for Token<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.kind
     }
 }
 
-impl<T: TokenKind, E> ErrorToken<T, E> {
+impl<T, E> ErrorToken<T, E> {
     pub fn unpack(self) -> (Token<T>, E) {
         (self.token, self.err)
     }
