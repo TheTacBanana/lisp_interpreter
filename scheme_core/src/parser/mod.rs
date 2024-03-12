@@ -2,12 +2,15 @@ use core::panic;
 
 use crate::{
     lexer::token::{LexerToken, LexerTokenKind},
-    token::{stream::{TokenStream, TokenStreamExt}, Token},
+    token::{
+        stream::{TokenStream, TokenStreamExt},
+        Token,
+    },
 };
 
 use self::{
     ast::AST,
-    token::{Numeric, ParserToken, ParserTokenKind},
+    token::{Literal, Numeric, ParserToken, ParserTokenKind},
 };
 
 pub mod ast;
@@ -38,17 +41,18 @@ impl Parser {
                             'f' | 'F' => false,
                             _ => panic!(),
                         };
-                        Some(ParserTokenKind::Boolean(b))
+                        Some(Literal::from_bool(b).into())
                     }
-                    LexerTokenKind::Numeric(nl) => {
-                        Some(ParserTokenKind::Numeric(Numeric::from_literal(nl)))
-                    }
+                    LexerTokenKind::Numeric(nl) => Some(Literal::from_numeric(nl).into()),
                     LexerTokenKind::Character(ch) => {
-                        Some(ParserTokenKind::Character(ch.chars().nth(2).unwrap()))
+                        Some(Literal::from_char(ch.chars().nth(2).unwrap()).into())
                     }
                     LexerTokenKind::Identifer(i) => Some(ParserTokenKind::Identifier(i)),
                     LexerTokenKind::String(s) => {
-                        Some(ParserTokenKind::String(s[1..(s.len() - 1)].to_string()))
+                        Some(Literal::from_string(s[1..(s.len() - 1)].to_string()).into())
+                    }
+                    LexerTokenKind::Symbol(s) => {
+                        Some(ParserTokenKind::Symbol(s.chars().next().unwrap()))
                     }
                     _ => None,
                 };
@@ -66,9 +70,8 @@ impl Parser {
         use ParserTokenKind as Token;
 
         loop {
-            if let Some(Token::OpenBracket(_)) = self.tokens.peek_front() {
+            if let Some(Token::Symbol('(')) = self.tokens.peek_front() {
                 // Find Opposite Bracket
-
 
                 self.tokens.opposite_bracket();
             }
@@ -77,7 +80,6 @@ impl Parser {
     }
 
     fn parse_block(stream: TokenStream<LexerToken>) -> AST {
-
         if let Some(Token::OpenBracket(_)) = self.tokens.peek_front() {
             // Find Opposite Bracket
             // Take from stream
@@ -85,6 +87,5 @@ impl Parser {
         }
     }
 }
-
 
 pub struct ParseResult {}
