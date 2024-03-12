@@ -21,6 +21,8 @@ pub trait TokenStreamExt<T>: Sized {
 
     fn peek_front(&self) -> Option<&T>;
 
+    fn pop_if(&mut self, f: impl FnOnce(&mut Self) -> bool) -> Option<Token<ParserTokenKind>>;
+
     // Peek the first N Tokens
     fn peek_n(&self, n: usize) -> Option<Vec<&T>>;
 
@@ -68,6 +70,10 @@ impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
 
     fn peek_front(&self) -> Option<&ParserTokenKind> {
         self.front().map(|t| t.inner())
+    }
+
+    fn pop_if(&mut self, f: impl FnOnce(&mut Self) -> bool) -> Option<Token<ParserTokenKind>> {
+        f(self).then(|| self.pop_front().unwrap())
     }
 
     fn peek_n(&self, n: usize) -> Option<Vec<&ParserTokenKind>> {

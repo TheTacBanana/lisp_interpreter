@@ -10,19 +10,12 @@ use crate::{
 
 use self::{
     ast::AST,
-    token::{Literal, Numeric, ParserToken, ParserTokenKind},
+    token::{Literal, ParserToken, ParserTokenKind},
 };
 
 pub mod ast;
 pub mod token;
 
-macro_rules! if_peek {
-    ($($params:expr),*, $b:block) => {
-        if let [$($params:expr),*] = self.tokens.front().map(|t| t.inner()) {
-            $block
-        }
-    };
-}
 pub struct Parser {
     pub tokens: TokenStream<ParserToken>,
 }
@@ -72,20 +65,57 @@ impl Parser {
         loop {
             if let Some(Token::Symbol('(')) = self.tokens.peek_front() {
                 // Find Opposite Bracket
-
+                // Take from stream
+                // Remove back and front bracket
+                // Parse block
                 self.tokens.opposite_bracket();
             }
         }
         todo!()
     }
 
-    fn parse_block(stream: TokenStream<LexerToken>) -> AST {
-        if let Some(Token::OpenBracket(_)) = self.tokens.peek_front() {
-            // Find Opposite Bracket
-            // Take from stream
-            // parse_block(new)
-        }
+    fn parse_block(stream: TokenStream<Token<ParserTokenKind>>) -> AST {
+        use ParserTokenKind as TK;
+
+        let items = Vec::new();
+
+        let take_next = || {
+            if let Some(TokenKind::Symbol('(' | '[')) = stream.peek_front() {
+                take_next
+            }
+
+            if let Some(t) =
+                stream.pop_if(|s| matches!(s.peek_front(), Some(TK::Identifier(_))))
+            {
+                let Token {
+                    kind: TK::Identifier(ident),
+                    span,
+                } = t
+                else {
+                    unreachable!()
+                };
+
+                return Ok(AST::Identifier(ident, span));
+            }
+
+            if let Some(t) =
+                stream.pop_if(|s| matches!(s.peek_front(), Some(TK::Literal(_))))
+            {
+                let Token {
+                    kind: TK::Literal(lit),
+                    span,
+                } = t
+                else {
+                    unreachable!()
+                };
+
+                return Ok(AST::Literal(lit, span))
+            }
+            Err(())
+        };
     }
+
+    fn parse_list(strean: TokenStream<LexerToken>) -> AST {}
 }
 
 pub struct ParseResult {}
