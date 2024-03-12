@@ -59,63 +59,79 @@ impl Parser {
         Parser { tokens }
     }
 
-    pub fn parse(self) -> ParseResult {
-        use ParserTokenKind as Token;
-
-        loop {
-            if let Some(Token::Symbol('(')) = self.tokens.peek_front() {
-                // Find Opposite Bracket
-                // Take from stream
-                // Remove back and front bracket
-                // Parse block
-                self.tokens.opposite_bracket();
-            }
+    pub fn parse(mut self) -> ParseResult {
+        let mut items = Vec::new();
+        while !self.tokens.is_empty() {
+            let item = match Self::parse_item(&mut self.tokens) {
+                Ok(item) => item,
+                Err(_) => todo!(),
+            };
+            items.push(item);
         }
-        todo!()
+        println!("{:?}", items);
+        ParseResult {  }
     }
 
-    fn parse_block(stream: TokenStream<Token<ParserTokenKind>>) -> AST {
+    fn parse_block(mut stream: TokenStream<Token<ParserTokenKind>>) -> Result<AST, ()> {
+        let op = Self::parse_item(&mut stream)?;
+        let mut items = Vec::new();
+        while !stream.is_empty() {
+            let item = match Self::parse_item(&mut stream) {
+                Ok(item) => item,
+                Err(_) => todo!(),
+            };
+            items.push(item);
+        }
+        Ok(AST::Operation(Box::new(op), items))
+    }
+
+    fn parse_list(mut stream: TokenStream<Token<ParserTokenKind>>) -> Result<AST, ()> {
+        let mut items = Vec::new();
+        while !stream.is_empty() {
+            let item = match Self::parse_item(&mut stream) {
+                Ok(item) => item,
+                Err(_) => todo!(),
+            };
+            items.push(item);
+        }
+        Ok(AST::List(items))
+    }
+
+    fn parse_item(stream: &mut TokenStream<Token<ParserTokenKind>>) -> Result<AST, ()> {
         use ParserTokenKind as TK;
 
-        let items = Vec::new();
+        let Token { kind, span } = stream.pop_front().unwrap();
+        match kind {
+            TK::Literal(lit) => Ok(AST::Literal(lit, span)),
+            TK::Identifier(ident) => Ok(AST::Identifier(ident, span)),
 
-        let take_next = || {
-            if let Some(TokenKind::Symbol('(' | '[')) = stream.peek_front() {
-                take_next
-            }
+            // New block
+            b @ TK::Symbol('(') => {
+                let index = stream.opposite(b).unwrap(); // TODO: Parse error unleveled brackets
+                let mut block = stream.take_n(index + 1).unwrap();
+                block.pop_back();
 
-            if let Some(t) =
-                stream.pop_if(|s| matches!(s.peek_front(), Some(TK::Identifier(_))))
-            {
-                let Token {
-                    kind: TK::Identifier(ident),
-                    span,
-                } = t
-                else {
-                    unreachable!()
-                };
+                Self::parse_block(block)
+            },
 
-                return Ok(AST::Identifier(ident, span));
-            }
+            // List
+            // TK::Symbol()
 
-            if let Some(t) =
-                stream.pop_if(|s| matches!(s.peek_front(), Some(TK::Literal(_))))
-            {
-                let Token {
-                    kind: TK::Literal(lit),
-                    span,
-                } = t
-                else {
-                    unreachable!()
-                };
+            // Quote
+            TK::Symbol('\'') => {
+                let Token { kind, span } = stream.pop_front().unwrap();
+                let b @ TK::Symbol('(') = kind else { return Err(()) };
 
-                return Ok(AST::Literal(lit, span))
-            }
-            Err(())
-        };
+                let index = stream.opposite(b).unwrap(); // TODO: Parse error unleveled brackets
+                let mut block = stream.take_n(index + 1).unwrap();
+                block.pop_back();
+
+                Self::parse_list(block)
+            },
+
+            _ => Err(()),
+        }
     }
-
-    fn parse_list(strean: TokenStream<LexerToken>) -> AST {}
 }
 
 pub struct ParseResult {}

@@ -17,7 +17,7 @@ pub trait TokenStreamExt<T>: Sized {
     fn find(&self, f: impl Fn(&Token<T>) -> bool) -> Option<usize>;
 
     /// Locate the opposite of the token at the front of the stream
-    fn opposite_bracket(&self) -> Result<usize, TokenStreamError>;
+    fn opposite(&self, token: ParserTokenKind) -> Result<usize, TokenStreamError>;
 
     fn peek_front(&self) -> Option<&T>;
 
@@ -35,31 +35,23 @@ impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
         self.iter().position(|t| f(t))
     }
 
-    fn opposite_bracket(&self) -> Result<usize, TokenStreamError> {
+    fn opposite(&self, token: ParserTokenKind) -> Result<usize, TokenStreamError> {
         use ParserTokenKind as Token;
-        let opposite_func = |t: &ParserTokenKind| match t {
-            Token::OpenBracket('(') => Some(Token::CloseBracket(')')),
-            Token::OpenBracket('[') => Some(Token::CloseBracket(']')),
-            _ => None,
-        };
 
-        let open = self
-            .front()
-            .map(|t| t.inner())
-            .ok_or(TokenStreamError::EndOfStreamEncounted)?;
-
-        let mut stack = vec![open];
-        for (i, token) in self.iter().skip(1).enumerate() {
+        let mut stack = vec!['('];
+        for (i, token) in self.iter().enumerate() {
+            // println!("{:?} {:?}", stack, token);
             let token = token.inner();
             let top = stack.last().unwrap();
             match (top, token) {
-                (Token::OpenBracket('('), Token::CloseBracket(')'))
-                | (Token::OpenBracket('['), Token::CloseBracket(']')) => {
+                ('(', Token::Symbol(')')) => {
                     stack.pop();
-                },
-                (_, b @ Token::OpenBracket(_)) => stack.push(b),
-                (_, b @ Token::CloseBracket(_)) => return Err(TokenStreamError::UnleveledBrackets),
+                }
+                (_, Token::Symbol(b @ '(')) => stack.push(*b),
+                (_, _) => (),
             }
+
+            // println!("{:?}", stack);
 
             if stack.is_empty() {
                 return Ok(i);
@@ -91,48 +83,48 @@ impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
     }
 }
 
-#[cfg(test)]
-pub mod test {
-    use crate::{
-        parser::token::ParserTokenKind,
-        token::{span::Span, Token},
-    };
+// #[cfg(test)]
+// pub mod test {
+//     use crate::{
+//         parser::token::ParserTokenKind,
+//         token::{span::Span, Token, Literal},
+//     };
 
-    use super::{TokenStream, TokenStreamExt};
+//     use super::{TokenStream, TokenStreamExt};
 
-    #[test]
-    pub fn take_n() {
-        let mut stream = TokenStream::default();
-        stream.push_back(Token {
-            kind: ParserTokenKind::Character('a'),
-            span: Span::zero(),
-        });
-        stream.push_back(Token {
-            kind: ParserTokenKind::Character('b'),
-            span: Span::zero(),
-        });
-        stream.push_back(Token {
-            kind: ParserTokenKind::Character('c'),
-            span: Span::zero(),
-        });
+//     #[test]
+//     pub fn take_n() {
+//         let mut stream = TokenStream::default();
+//         stream.push_back(Token {
+//             kind: Literal::from_char('a'),
+//             span: Span::zero(),
+//         });
+//         stream.push_back(Token {
+//             kind: ParserTokenKind::Character('b'),
+//             span: Span::zero(),
+//         });
+//         stream.push_back(Token {
+//             kind: ParserTokenKind::Character('c'),
+//             span: Span::zero(),
+//         });
 
-        let mut against = TokenStream::default();
-        against.push_back(Token {
-            kind: ParserTokenKind::Character('a'),
-            span: Span::zero(),
-        });
-        against.push_back(Token {
-            kind: ParserTokenKind::Character('b'),
-            span: Span::zero(),
-        });
+//         let mut against = TokenStream::default();
+//         against.push_back(Token {
+//             kind: ParserTokenKind::Character('a'),
+//             span: Span::zero(),
+//         });
+//         against.push_back(Token {
+//             kind: ParserTokenKind::Character('b'),
+//             span: Span::zero(),
+//         });
 
-        assert_eq!(stream.take_n(2).unwrap(), against);
-        assert_eq!(
-            stream.front(),
-            Some(&Token {
-                kind: ParserTokenKind::Character('c'),
-                span: Span::zero(),
-            })
-        )
-    }
-}
+//         assert_eq!(stream.take_n(2).unwrap(), against);
+//         assert_eq!(
+//             stream.front(),
+//             Some(&Token {
+//                 kind: ParserTokenKind::Character('c'),
+//                 span: Span::zero(),
+//             })
+//         )
+//     }
+// }

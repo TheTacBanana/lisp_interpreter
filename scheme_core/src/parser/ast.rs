@@ -4,6 +4,7 @@ use super::token::Literal;
 
 type P<T> = Box<T>;
 
+#[derive(Debug)]
 pub enum AST {
     /// Identifer
     Identifier(String, Span),

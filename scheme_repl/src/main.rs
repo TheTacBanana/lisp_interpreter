@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use scheme_core::lexer::Lexer;
+use scheme_core::{lexer::{self, Lexer}, parser::Parser};
 
 fn main() {
     println!("Scheme REPL (Read Evalutate Print Loop:");
@@ -20,5 +20,7 @@ fn main() {
             let tokens = lexer_result.tokens.iter().map(|t| t.inner()).collect::<Vec<_>>();
             println!("{:?}", tokens);
         }
+
+        let parser = Parser::new(lexer_result.tokens).parse();
     }
 }
