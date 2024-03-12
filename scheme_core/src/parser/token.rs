@@ -1,4 +1,4 @@
-use crate::{lexer::literal::NumericLiteral, token::Token};
+use crate::{lexer::literal::NumericLiteral, token::{Token, TokenKind}};
 
 pub type ParserToken = Token<ParserTokenKind>;
 
@@ -12,6 +12,8 @@ pub enum ParserTokenKind {
     OpenBracket(char),
     CloseBracket(char)
 }
+
+impl TokenKind for ParserTokenKind { }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Numeric {

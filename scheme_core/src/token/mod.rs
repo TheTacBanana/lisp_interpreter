@@ -5,17 +5,13 @@ use self::span::Span;
 pub mod span;
 pub mod stream;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token<T> {
     pub kind: T,
     pub span: Span,
 }
 
 pub trait TokenKind : Sized{
-    // fn inner(&self) -> &String;
-    // fn inner_mut(&mut self) -> &mut String;
-    // fn to_string(self) -> String;
-
     // fn the_same(&self, other: &Self) -> bool;
 }
 
