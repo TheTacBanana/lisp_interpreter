@@ -1,4 +1,4 @@
-use crate::{lexer::literal::NumericLiteral, token::{Token, TokenKind}};
+use crate::{lexer::literal::NumericLiteral, token::{span::Span, Token, TokenKind}};
 
 pub type ParserToken = Token<ParserTokenKind>;
 
@@ -59,4 +59,12 @@ impl Numeric {
             NumericLiteral::Hex(x) => Numeric::Int(i32::from_str_radix(&x[2..], 16).unwrap()),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ParseTokenError {
+    /// Unmatched Bracket
+    UnmatchedBrackets,
+    /// Missing bracket
+    MissingBracket,
 }

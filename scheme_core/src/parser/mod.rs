@@ -3,6 +3,7 @@ use core::panic;
 use crate::{
     lexer::token::{LexerToken, LexerTokenKind},
     token::{
+        span::Span,
         stream::{TokenStream, TokenStreamExt},
         Token,
     },
@@ -10,7 +11,7 @@ use crate::{
 
 use self::{
     ast::AST,
-    token::{Literal, ParserToken, ParserTokenKind},
+    token::{Literal, ParseTokenError, ParserToken, ParserTokenKind},
 };
 
 pub mod ast;
@@ -60,44 +61,23 @@ impl Parser {
     }
 
     pub fn parse(mut self) -> ParseResult {
+        let mut errors = Vec::new();
         let mut items = Vec::new();
         while !self.tokens.is_empty() {
-            let item = match Self::parse_item(&mut self.tokens) {
-                Ok(item) => item,
-                Err(_) => todo!(),
+            match Self::parse_item(&mut self.tokens) {
+                Ok(item) => items.push(item),
+                Err(e) => errors.push(e),
             };
-            items.push(item);
         }
-        println!("{:?}", items);
-        ParseResult {  }
+        ParseResult {
+            ast: items,
+            errors,
+        }
     }
 
-    fn parse_block(mut stream: TokenStream<Token<ParserTokenKind>>) -> Result<AST, ()> {
-        let op = Self::parse_item(&mut stream)?;
-        let mut items = Vec::new();
-        while !stream.is_empty() {
-            let item = match Self::parse_item(&mut stream) {
-                Ok(item) => item,
-                Err(_) => todo!(),
-            };
-            items.push(item);
-        }
-        Ok(AST::Operation(Box::new(op), items))
-    }
-
-    fn parse_list(mut stream: TokenStream<Token<ParserTokenKind>>) -> Result<AST, ()> {
-        let mut items = Vec::new();
-        while !stream.is_empty() {
-            let item = match Self::parse_item(&mut stream) {
-                Ok(item) => item,
-                Err(_) => todo!(),
-            };
-            items.push(item);
-        }
-        Ok(AST::List(items))
-    }
-
-    fn parse_item(stream: &mut TokenStream<Token<ParserTokenKind>>) -> Result<AST, ()> {
+    fn parse_item(
+        stream: &mut TokenStream<Token<ParserTokenKind>>,
+    ) -> Result<AST, (Span, ParseTokenError)> {
         use ParserTokenKind as TK;
 
         let Token { kind, span } = stream.pop_front().unwrap();
@@ -107,31 +87,74 @@ impl Parser {
 
             // New block
             b @ TK::Symbol('(') => {
-                let index = stream.opposite(b).unwrap(); // TODO: Parse error unleveled brackets
+                let index = match stream.opposite(b) {
+                    Ok(index) => index,
+                    Err(_) => Err((span, ParseTokenError::UnmatchedBrackets))?,
+                };
                 let mut block = stream.take_n(index + 1).unwrap();
                 block.pop_back();
 
                 Self::parse_block(block)
-            },
+            }
 
             // List
             // TK::Symbol()
 
             // Quote
-            TK::Symbol('\'') => {
-                let Token { kind, span } = stream.pop_front().unwrap();
-                let b @ TK::Symbol('(') = kind else { return Err(()) };
+            TK::Symbol('\'') => Self::parse_quoted(stream),
 
-                let index = stream.opposite(b).unwrap(); // TODO: Parse error unleveled brackets
+            _ => panic!("No item found"),
+        }
+    }
+
+    fn parse_block(
+        mut stream: TokenStream<Token<ParserTokenKind>>,
+    ) -> Result<AST, (Span, ParseTokenError)> {
+        let item = Self::parse_item(&mut stream)?;
+
+        let mut items = Vec::new();
+        while !stream.is_empty() {
+            let item = Self::parse_item(&mut stream)?;
+            items.push(item);
+        }
+        Ok(AST::Operation(Box::new(item), items))
+    }
+
+    fn parse_quoted(
+        stream: &mut TokenStream<Token<ParserTokenKind>>,
+    ) -> Result<AST, (Span, ParseTokenError)> {
+        let Token { kind, span } = stream.pop_front().unwrap();
+        match kind {
+            b @ ParserTokenKind::Symbol('(') => {
+                let index = match stream.opposite(b) {
+                    Ok(index) => index,
+                    Err(_) => Err((span, ParseTokenError::UnmatchedBrackets))?,
+                };
                 let mut block = stream.take_n(index + 1).unwrap();
                 block.pop_back();
 
                 Self::parse_list(block)
-            },
-
-            _ => Err(()),
+            }
+            ParserTokenKind::Identifier(_) => todo!(),
+            ParserTokenKind::Literal(_) => todo!(),
+            _ => panic!("No Item Found")
         }
+    }
+
+    fn parse_list(
+        mut stream: TokenStream<Token<ParserTokenKind>>,
+    ) -> Result<AST, (Span, ParseTokenError)> {
+        let mut items = Vec::new();
+        while !stream.is_empty() {
+            let item = Self::parse_item(&mut stream)?;
+            items.push(item);
+        }
+        Ok(AST::List(items))
     }
 }
 
-pub struct ParseResult {}
+#[derive(Debug)]
+pub struct ParseResult {
+    pub ast: Vec<AST>,
+    pub errors: Vec<(Span, ParseTokenError)>,
+}

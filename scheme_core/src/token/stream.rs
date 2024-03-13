@@ -6,18 +6,12 @@ use super::{Token, TokenKind};
 
 pub type TokenStream<T> = VecDeque<T>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TokenStreamError {
-    EndOfStreamEncounted,
-    UnleveledBrackets,
-}
-
 pub trait TokenStreamExt<T>: Sized {
     /// Find a token matching a given predicate
     fn find(&self, f: impl Fn(&Token<T>) -> bool) -> Option<usize>;
 
     /// Locate the opposite of the token at the front of the stream
-    fn opposite(&self, token: ParserTokenKind) -> Result<usize, TokenStreamError>;
+    fn opposite(&self, token: ParserTokenKind) -> Result<usize, ()>;
 
     fn peek_front(&self) -> Option<&T>;
 
@@ -35,7 +29,7 @@ impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
         self.iter().position(|t| f(t))
     }
 
-    fn opposite(&self, token: ParserTokenKind) -> Result<usize, TokenStreamError> {
+    fn opposite(&self, token: ParserTokenKind) -> Result<usize, ()> {
         use ParserTokenKind as Token;
 
         let mut stack = vec!['('];
@@ -51,13 +45,11 @@ impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
                 (_, _) => (),
             }
 
-            // println!("{:?}", stack);
-
             if stack.is_empty() {
                 return Ok(i);
             }
         }
-        return Err(TokenStreamError::EndOfStreamEncounted);
+        return Err(());
     }
 
     fn peek_front(&self) -> Option<&ParserTokenKind> {
