@@ -3,6 +3,7 @@ use std::io::Write;
 use scheme_core::{lexer::{self, Lexer}, parser::Parser};
 
 fn main() {
+    let verbose = std::env::args().any(|s| s.to_uppercase() == "v");
     println!("Scheme REPL (Read Evalutate Print Loop:");
 
     loop {
@@ -15,17 +16,16 @@ fn main() {
         if let Some(writer) = lexer_result.error_writer() {
             writer.write();
             continue;
-        } else {
-            let tokens = lexer_result.tokens.iter().map(|t| t.inner()).collect::<Vec<_>>();
-            println!("{:?}", tokens);
+        } else if verbose{
+            println!("{:?}", lexer_result.tokens.iter().map(|t| t.inner()).collect::<Vec<_>>());
         }
 
         let parser_result = Parser::new(lexer_result.tokens).parse();
         if let Some(writer) = parser_result.error_writer(&str_in) {
             writer.write();
             continue;
-        } else {
-            println!("{:#?}", parser_result.ast);
+        } else if verbose{
+            println!("{:?}", parser_result.ast);
         }
     }
 }
