@@ -7,8 +7,16 @@ name = "scheme_core"
 version = "0.1.0"
 
 [[package]]
+name = "scheme_interpreter"
+version = "0.1.0"
+dependencies = [
+ "scheme_core",
+]
+
+[[package]]
 name = "scheme_repl"
 version = "0.1.0"
 dependencies = [
  "scheme_core",
+ "scheme_interpreter",
 ]

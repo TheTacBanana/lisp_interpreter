@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "scheme_core",
+    "scheme_core", "scheme_interpreter",
     "scheme_repl",
 ]
 resolver = "1"

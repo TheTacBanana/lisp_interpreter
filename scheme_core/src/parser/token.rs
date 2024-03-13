@@ -1,6 +1,6 @@
-use std::error::Error;
+use std::{error::Error, ops::{Add, Sub}};
 
-use crate::{lexer::literal::NumericLiteral, token::{span::Span, Token, TokenKind}};
+use crate::{lexer::literal::NumericLiteral, token::{Token, TokenKind}};
 
 pub type ParserToken = Token<ParserTokenKind>;
 
@@ -45,6 +45,19 @@ impl Into<ParserTokenKind> for Literal {
     }
 }
 
+impl std::fmt::Display for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Literal::String(s) => write!(f, "\"{s}\"")?,
+            Literal::Character(c) => write!(f, "'{c}'")?,
+            Literal::Numeric(n) => write!(f, "{n}")?,
+            Literal::Boolean(true) => write!(f, "true")?,
+            Literal::Boolean(false) => write!(f, "false")?,
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Numeric {
     Int(i32),
@@ -59,6 +72,42 @@ impl Numeric {
             NumericLiteral::Bin(b) => Numeric::Int(i32::from_str_radix(&b[2..], 2).unwrap()),
             NumericLiteral::Oct(o) => Numeric::Int(i32::from_str_radix(&o[2..], 8).unwrap()),
             NumericLiteral::Hex(x) => Numeric::Int(i32::from_str_radix(&x[2..], 16).unwrap()),
+        }
+    }
+}
+
+impl std::fmt::Display for Numeric {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Numeric::Int(i) => write!(f, "{i}")?,
+            Numeric::Float(fl) => write!(f, "{fl}")?,
+        }
+        Ok(())
+    }
+}
+
+impl Add<Numeric> for Numeric {
+    type Output = Numeric;
+
+    fn add(self, rhs: Numeric) -> Self::Output {
+        match (self, rhs) {
+            (Numeric::Int(l), Numeric::Int(r)) => Numeric::Int(l + r),
+            (Numeric::Int(l), Numeric::Float(r)) => Numeric::Float(l as f32 + r),
+            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l + r as f32),
+            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l + r),
+        }
+    }
+}
+
+impl Sub<Numeric> for Numeric {
+    type Output = Numeric;
+
+    fn sub(self, rhs: Numeric) -> Self::Output {
+        match (self, rhs) {
+            (Numeric::Int(l), Numeric::Int(r)) => Numeric::Int(l - r),
+            (Numeric::Int(l), Numeric::Float(r)) => Numeric::Float(l as f32 - r),
+            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l - r as f32),
+            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l - r),
         }
     }
 }

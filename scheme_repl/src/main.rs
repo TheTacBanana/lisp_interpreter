@@ -1,11 +1,13 @@
 use std::io::Write;
 
 use scheme_core::{lexer::{self, Lexer}, parser::Parser};
+use scheme_interpreter::Interpreter;
 
 fn main() {
     let verbose = std::env::args().any(|s| s.to_uppercase() == "v");
     println!("Scheme REPL (Read Evalutate Print Loop:");
 
+    let mut interpreter = Interpreter::new();
     loop {
         print!("> ");
         std::io::stdout().flush().unwrap();
@@ -26,6 +28,10 @@ fn main() {
             continue;
         } else if verbose{
             println!("{:?}", parser_result.ast);
+        }
+
+        for ast in parser_result.ast {
+            interpreter.run_ast(ast);
         }
     }
 }

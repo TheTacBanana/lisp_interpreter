@@ -15,3 +15,14 @@ pub enum AST {
     /// List of Items
     List(Vec<AST>),
 }
+
+impl std::fmt::Display for AST {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AST::Identifier(ident, _) => write!(f, "{ident}"),
+            AST::Literal(lit, _) => write!(f, "{lit}"),
+            AST::List(list) => write!(f, "{list:?}"),
+            AST::Operation(_, _) => panic!(),
+        }
+    }
+}
