@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use crate::{lexer::literal::NumericLiteral, token::{span::Span, Token, TokenKind}};
 
 pub type ParserToken = Token<ParserTokenKind>;
@@ -67,4 +69,19 @@ pub enum ParseTokenError {
     UnmatchedBrackets,
     /// Missing bracket
     MissingBracket,
+}
+
+impl Error for ParseTokenError {}
+
+impl std::fmt::Display for ParseTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // let tmp;
+        let s = match self {
+            ParseTokenError::UnmatchedBrackets => "Mismatched closing bracket",
+            ParseTokenError::MissingBracket => "Missing closing Bracket",
+        }
+        .to_string();
+        write!(f, "{}", s)?;
+        Ok(())
+    }
 }

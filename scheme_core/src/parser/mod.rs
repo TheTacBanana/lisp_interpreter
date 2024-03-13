@@ -1,12 +1,11 @@
 use core::panic;
 
 use crate::{
-    lexer::token::{LexerToken, LexerTokenKind},
-    token::{
+    error::{ErrorWriter, IndividualError}, lexer::token::{LexerToken, LexerTokenKind}, token::{
         span::Span,
         stream::{TokenStream, TokenStreamExt},
         Token,
-    },
+    }
 };
 
 use self::{
@@ -89,7 +88,7 @@ impl Parser {
             b @ TK::Symbol('(') => {
                 let index = match stream.opposite(b) {
                     Ok(index) => index,
-                    Err(_) => Err((span, ParseTokenError::UnmatchedBrackets))?,
+                    Err(_) => Err((span, ParseTokenError::MissingBracket))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
                 block.pop_back();
@@ -128,7 +127,7 @@ impl Parser {
             b @ ParserTokenKind::Symbol('(') => {
                 let index = match stream.opposite(b) {
                     Ok(index) => index,
-                    Err(_) => Err((span, ParseTokenError::UnmatchedBrackets))?,
+                    Err(_) => Err((span, ParseTokenError::MissingBracket))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
                 block.pop_back();
@@ -157,4 +156,34 @@ impl Parser {
 pub struct ParseResult {
     pub ast: Vec<AST>,
     pub errors: Vec<(Span, ParseTokenError)>,
+}
+
+impl ParseResult {
+    pub fn error_writer(&self, file: &String) -> Option<ErrorWriter<ParseTokenError>> {
+        if self.errors.len() == 0 {
+            return None
+        }
+
+        let lines = file.lines().collect::<Vec<_>>();
+
+        let mut formatted_errors = Vec::new();
+        for e in self.errors.iter() {
+            let span = e.0;
+            let whole_line = lines.get(span.start.line).unwrap().to_string();
+
+            formatted_errors.push(
+                IndividualError {
+                    whole_line,
+                    span,
+                    error: e.1,
+                }
+            )
+        }
+
+        Some(
+            ErrorWriter {
+                errors: formatted_errors,
+            }
+        )
+    }
 }
