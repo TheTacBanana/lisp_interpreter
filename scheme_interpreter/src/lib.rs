@@ -131,9 +131,11 @@ impl Interpreter {
 #[cfg(test)]
 pub mod test {
     use scheme_core::{
+        lexer::Lexer,
         parser::{
             ast::AST,
             token::{Literal, Numeric},
+            Parser,
         },
         token::span::Span,
     };
@@ -198,5 +200,29 @@ pub mod test {
             i.interpret(f_use),
             Symbol::Value(Literal::Numeric(Numeric::Int(3)))
         );
+    }
+
+    #[test]
+    pub fn integration_fib() {
+        let program: String = "(define (fib n)
+        (if (<= n 2)
+            1
+            (+ (fib (- n 1)) (fib (- n 2)))))
+        (fib 7)
+        "
+        .into();
+
+        let mut interpreter = Interpreter::new();
+
+        let lexer_result = Lexer::from_string(program.clone()).lex();
+        assert!(lexer_result.error_writer().is_none());
+
+        let mut parser_result = Parser::new(lexer_result.tokens).parse();
+        parser_result.error_writer(&program);
+
+        let mut program = parser_result.ast.drain(..);
+        assert_eq!(interpreter.interpret(program.next().unwrap()), Symbol::Bottom);
+        println!("Defined");
+        assert_eq!(interpreter.interpret(program.next().unwrap()), Symbol::Value(Literal::Numeric(Numeric::Int(13))));
     }
 }

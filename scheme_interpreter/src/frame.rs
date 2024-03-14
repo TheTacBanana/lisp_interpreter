@@ -37,6 +37,10 @@ impl StackFrame {
     }
 }
 
+// pub fn if_def(mut vec: Vec<Symbol>) -> Symbol {
+//     match
+// }
+
 pub fn add_def(mut vec: Vec<Symbol>) -> Symbol {
     let mut values = vec.drain(..).map(|v| match v {
         Symbol::Value(l) => l,
