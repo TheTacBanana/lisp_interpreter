@@ -63,7 +63,7 @@ impl Parser {
         let mut errors = Vec::new();
         let mut items = Vec::new();
         while !self.tokens.is_empty() {
-            match Self::parse_item(&mut self.tokens) {
+            match Self::parse_item(&mut self.tokens) { // TODO: Make work with no brackets
                 Ok(item) => items.push(item),
                 Err(e) => errors.push(e),
             };

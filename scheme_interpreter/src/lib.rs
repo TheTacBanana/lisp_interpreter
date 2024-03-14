@@ -3,7 +3,7 @@
 use core::panic;
 
 use frame::StackFrame;
-use scheme_core::parser::ast::AST;
+use scheme_core::parser::{ast::AST, token::Literal};
 use symbol::{FunctionCall, Symbol};
 
 pub mod frame;
@@ -21,21 +21,22 @@ impl Interpreter {
     }
 
     pub fn run_ast(&mut self, ast: AST) {
-        if let Some(ast) = self.interpret(ast) {
-            println!("{}", ast);
-        }
+        let res = self.interpret(ast);
+        println!("{res}")
     }
 
-    fn interpret(&mut self, ast: AST) -> Option<AST> {
+    fn interpret(&mut self, ast: AST) -> Symbol {
         match ast {
-            // AST::Identifier(ident, _) => {
-            //     Some(self.resolve_symbol(&ident).expect("Func not defined"))
-            // },
-            l @ AST::Literal(_, _) => Some(l),
-            AST::Operation(op, params) => match *op {
+            AST::Literal(l, _) => Symbol::Value(l),
+            AST::Identifier(ident, _) => self.resolve_symbol(&ident).cloned().unwrap(),
+            AST::Operation(op, mut params) => match *op {
                 AST::Identifier(ident, _) => {
+                    let params = params
+                        .drain(..)
+                        .map(|ast| self.interpret(ast))
+                        .collect::<Vec<_>>();
                     match self.stack[0].get(&ident).expect("Func not defined") {
-                        Symbol::FunctionCall(f) => self.apply_operation(f, &params),
+                        Symbol::FunctionCall(f) => self.apply_operation(f, params),
                         _ => panic!(),
                     }
                 }
@@ -46,7 +47,13 @@ impl Interpreter {
         }
     }
 
-    fn apply_operation(&self, f: &FunctionCall, params: &Vec<AST>) -> Option<AST> {
+    fn resolve_symbol(&self, symbol: &str) -> Option<&Symbol> {
+        self.stack.iter().rev().find_map(|st| st.get(symbol))
+    }
+
+    // fn write_symbol(&self, symbol: &str, )
+
+    fn apply_operation(&self, f: &FunctionCall, params: Vec<Symbol>) -> Symbol {
         match f {
             FunctionCall::Native(f) => f(params),
         }

@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
-use scheme_core::{parser::{ast::AST, token::{Literal, Numeric}}, token::span::Span};
+use scheme_core::{parser::{ast::AST, token::Literal}, token::span::Span};
 
-use crate::symbol::{self, FunctionCall, Symbol};
+use crate::symbol::{FunctionCall, Symbol};
 
 pub struct StackFrame {
     pub items: HashMap<&'static str, Symbol>,
@@ -17,7 +17,7 @@ impl StackFrame {
 
     pub fn prelude() -> Self {
         let mut new = Self::new();
-        new.add_item("+", Symbol::FunctionCall(FunctionCall::Native(Box::new(add_def))));
+        new.add_item("+", Symbol::FunctionCall(FunctionCall::Native(add_def)));
         new
     }
 
@@ -26,7 +26,7 @@ impl StackFrame {
         self.items.get(symbol)
     }
 
-    pub fn get_item(&mut self, symbol: &str) -> Option<&mut Symbol> {
+    pub fn get_mut(&mut self, symbol: &str) -> Option<&mut Symbol> {
         self.items.get_mut(symbol)
     }
 
@@ -35,13 +35,14 @@ impl StackFrame {
     }
 }
 
-pub fn add_def(vec: &Vec<AST>) -> Option<AST> {
-    let mut values = vec.iter().map(|v| match v {
-        AST::Literal(v, _) => v.clone(),
+pub fn add_def(mut vec: Vec<Symbol>) -> Symbol {
+    let mut values = vec.drain(..).map(|v| match v {
+        Symbol::Value(l) => l,
         _ => panic!("Cannot add non values together")
-    }).collect::<Vec<_>>();
+    }).collect::<VecDeque<_>>();
 
-    let out = values.drain(..).reduce(|l, r| {
+    let first = values.pop_front().unwrap();
+    let out = values.drain(..).fold(first,|l, r| {
         match (l, r) {
             (Literal::Numeric(l), Literal::Numeric(r)) => Literal::Numeric(l + r),
             _ => panic!()
@@ -62,5 +63,5 @@ pub fn add_def(vec: &Vec<AST>) -> Option<AST> {
             // (Literal::Boolean(_), Literal::Boolean(_)) => todo!(),
         }
     });
-    Some(AST::Literal(out.unwrap().clone(), Span::zero()))
+    Symbol::Value(out.clone())
 }

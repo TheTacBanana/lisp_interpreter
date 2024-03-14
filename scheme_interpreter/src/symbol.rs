@@ -1,7 +1,9 @@
-use scheme_core::parser::ast::AST;
+use scheme_core::parser::{ast::AST, token::Literal};
 
+#[derive(Clone)]
 pub enum Symbol {
-    Value(AST),
+    Value(Literal),
+    // Tokens(AST),
     FunctionCall(FunctionCall),
     Bottom,
 }
@@ -19,9 +21,9 @@ impl std::fmt::Display for Symbol {
     }
 }
 
-// #[derive(Clone)]
+#[derive(Clone)]
 pub enum FunctionCall {
     /// Native function call
-    Native(Box<dyn 'static + Fn(&Vec<AST>) -> Option<AST>> ),
+    Native(fn(Vec<Symbol>) -> Symbol),
     // Defined(Vec<AST>, AST)
 }
