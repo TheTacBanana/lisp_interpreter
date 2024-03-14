@@ -5,7 +5,7 @@ use scheme_core::{parser::{ast::AST, token::Literal}, token::span::Span};
 use crate::symbol::{FunctionCall, Symbol};
 
 pub struct StackFrame {
-    pub items: HashMap<&'static str, Symbol>,
+    pub items: HashMap<String, Symbol>,
 }
 
 impl StackFrame {
@@ -18,6 +18,7 @@ impl StackFrame {
     pub fn prelude() -> Self {
         let mut new = Self::new();
         new.add_item("+", Symbol::FunctionCall(FunctionCall::Native(add_def)));
+        new.add_item("-", Symbol::FunctionCall(FunctionCall::Native(sub_def)));
         new
     }
 
@@ -30,8 +31,8 @@ impl StackFrame {
         self.items.get_mut(symbol)
     }
 
-    pub fn add_item(&mut self, symbol: &'static str, value: Symbol) {
-        self.items.insert(symbol, value);
+    pub fn add_item(&mut self, symbol: &str, value: Symbol) {
+        self.items.insert(symbol.to_string(), value);
     }
 }
 
@@ -46,21 +47,22 @@ pub fn add_def(mut vec: Vec<Symbol>) -> Symbol {
         match (l, r) {
             (Literal::Numeric(l), Literal::Numeric(r)) => Literal::Numeric(l + r),
             _ => panic!()
-            // (Literal::String(s1), Literal::String(s)) => todo!(),
-            // (Literal::String(_), Literal::Character(_)) => todo!(),
-            // (Literal::String(_), Literal::Numeric(_)) => todo!(),
-            // (Literal::String(_), Literal::Boolean(_)) => todo!(),
-            // (Literal::Character(_), Literal::String(_)) => todo!(),
-            // (Literal::Character(_), Literal::Character(_)) => todo!(),
-            // (Literal::Character(_), Literal::Numeric(_)) => todo!(),
-            // (Literal::Character(_), Literal::Boolean(_)) => todo!(),
-            // (Literal::Numeric(_), Literal::String(_)) => todo!(),
-            // (Literal::Numeric(_), Literal::Character(_)) => todo!(),
-            // (Literal::Numeric(_), Literal::Boolean(_)) => todo!(),
-            // (Literal::Boolean(_), Literal::String(_)) => todo!(),
-            // (Literal::Boolean(_), Literal::Character(_)) => todo!(),
-            // (Literal::Boolean(_), Literal::Numeric(_)) => todo!(),
-            // (Literal::Boolean(_), Literal::Boolean(_)) => todo!(),
+        }
+    });
+    Symbol::Value(out.clone())
+}
+
+pub fn sub_def(mut vec: Vec<Symbol>) -> Symbol {
+    let mut values = vec.drain(..).map(|v| match v {
+        Symbol::Value(l) => l,
+        _ => panic!("Cannot sub non values together")
+    }).collect::<VecDeque<_>>();
+
+    let first = values.pop_front().unwrap();
+    let out = values.drain(..).fold(first,|l, r| {
+        match (l, r) {
+            (Literal::Numeric(l), Literal::Numeric(r)) => Literal::Numeric(l - r),
+            _ => panic!()
         }
     });
     Symbol::Value(out.clone())

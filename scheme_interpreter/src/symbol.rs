@@ -1,6 +1,6 @@
 use scheme_core::parser::{ast::AST, token::Literal};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
     Value(Literal),
     // Tokens(AST),
@@ -13,17 +13,18 @@ impl std::fmt::Display for Symbol {
         match self {
             Symbol::Value(ast) => write!(f, "{ast}")?,
             Symbol::FunctionCall(FunctionCall::Native(_)) => write!(f, "NativeFn")?,
-            // Symbol::FunctionCall(FunctionCall::Defined(_)) => write!(f, "UserFn")?,
-            Symbol::Bottom => write!(f, "⊥")?,
-            _ => ()
+            Symbol::FunctionCall(FunctionCall::Defined(_, _)) => write!(f, "UserFn")?,
+            Symbol::Bottom => (),
         }
         Ok(())
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FunctionCall {
     /// Native function call
     Native(fn(Vec<Symbol>) -> Symbol),
-    // Defined(Vec<AST>, AST)
+
+    /// List of Param Identifiers,
+    Defined(Vec<String>, AST)
 }

@@ -30,13 +30,36 @@ impl Interpreter {
             AST::Literal(l, _) => Symbol::Value(l),
             AST::Identifier(ident, _) => self.resolve_symbol(&ident).cloned().unwrap(),
             AST::Operation(op, mut params) => match *op {
+                AST::Identifier(def, _) if def == "define" => {
+                    let mut params = params.drain(..);
+                    let AST::Operation(f_name, mut param_names) = params.next().unwrap() else {
+                        panic!()
+                    };
+                    let AST::Identifier(f_name, _) = *f_name else {
+                        panic!()
+                    };
+                    let param_names = param_names
+                        .drain(..)
+                        .map(|p| match p {
+                            AST::Identifier(i, _) => i,
+                            _ => panic!(),
+                        })
+                        .collect();
+                    let f_ast = params.next().unwrap();
+
+                    self.write_symbol(
+                        &f_name,
+                        Symbol::FunctionCall(FunctionCall::Defined(param_names, f_ast)),
+                    );
+                    Symbol::Bottom
+                }
                 AST::Identifier(ident, _) => {
                     let params = params
                         .drain(..)
                         .map(|ast| self.interpret(ast))
                         .collect::<Vec<_>>();
-                    match self.stack[0].get(&ident).expect("Func not defined") {
-                        Symbol::FunctionCall(f) => self.apply_operation(f, params),
+                    match self.resolve_symbol(&ident) {
+                        Some(Symbol::FunctionCall(f)) => self.apply_operation(f.clone(), params),
                         _ => panic!(),
                     }
                 }
@@ -51,11 +74,99 @@ impl Interpreter {
         self.stack.iter().rev().find_map(|st| st.get(symbol))
     }
 
-    // fn write_symbol(&self, symbol: &str, )
+    fn write_symbol(&mut self, symbol: &str, value: Symbol) {
+        match self
+            .stack
+            .iter_mut()
+            .rev()
+            .find_map(|st| st.get_mut(symbol))
+        {
+            None => self.stack.last_mut().unwrap().add_item(symbol, value),
+            Some(r) => *r = value,
+        }
+    }
 
-    fn apply_operation(&self, f: &FunctionCall, params: Vec<Symbol>) -> Symbol {
+    fn top_stack(&mut self) -> &mut StackFrame{
+        self.stack.last_mut().unwrap()
+    }
+
+    fn create_stack_frame(&mut self) {
+        self.stack.push(StackFrame::new())
+    }
+
+    fn pop_stack_frame(&mut self) {
+        self.stack.pop();
+    }
+
+    fn apply_operation(&mut self, f: FunctionCall, params: Vec<Symbol>) -> Symbol {
         match f {
             FunctionCall::Native(f) => f(params),
+            FunctionCall::Defined(param_names, ast) => {
+                self.create_stack_frame();
+                let stack = self.top_stack();
+
+                param_names.iter().zip(params).for_each(|(p_name, p_val)| {
+                    stack.add_item(&p_name, p_val)
+                });
+
+                let result = self.interpret(ast);
+                self.pop_stack_frame();
+                result
+            },
         }
+    }
+}
+
+#[cfg(test)]
+pub mod test {
+    use scheme_core::{
+        parser::{
+            ast::AST,
+            token::{Literal, Numeric},
+        },
+        token::span::Span,
+    };
+
+    use crate::{symbol::Symbol, Interpreter};
+
+    #[test]
+    pub fn add_func() {
+        let f_def = AST::Operation(
+            Box::new(AST::Identifier("define".into(), Span::zero())),
+            vec![
+                AST::Operation(
+                    Box::new(AST::Identifier("add".into(), Span::zero())),
+                    vec![
+                        AST::Identifier("x".into(), Span::zero()),
+                        AST::Identifier("y".into(), Span::zero()),
+                    ],
+                ),
+                AST::Operation(
+                    Box::new(AST::Identifier("+".into(), Span::zero())),
+                    vec![
+                        AST::Identifier("x".into(), Span::zero()),
+                        AST::Identifier("y".into(), Span::zero()),
+                    ],
+                ),
+            ],
+        );
+
+        let f_use = AST::Operation(
+            Box::new(AST::Identifier("add".into(), Span::zero())),
+            vec![AST::Literal(
+                Literal::Numeric(Numeric::Int(1)),
+                Span::zero(),
+            ),
+            AST::Literal(
+                Literal::Numeric(Numeric::Int(2)),
+                Span::zero(),
+            )
+            ],
+        );
+
+        let mut i = Interpreter::new();
+
+        i.interpret(f_def);
+        assert_eq!(i.interpret(f_use), Symbol::Value(Literal::Numeric(Numeric::Int(3))));
     }
 }
