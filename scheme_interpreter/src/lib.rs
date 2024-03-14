@@ -127,10 +127,13 @@ impl Interpreter {
                 result
             }
             FunctionCall::Defined(param_names, ast) => {
-                let params = params.drain(..).map(|p| match p {
-                    Symbol::Tokens(ast) => self.interpret(ast),
-                    t => t
-                }).collect::<Vec<_>>();
+                let params = params
+                    .drain(..)
+                    .map(|p| match p {
+                        Symbol::Tokens(ast) => self.interpret(ast),
+                        t => t,
+                    })
+                    .collect::<Vec<_>>();
 
                 let stack = self.top_stack();
                 param_names
@@ -182,7 +185,7 @@ pub mod test {
     }
 
     #[test]
-    pub fn add_func() {
+    pub fn define_func() {
         let f_def = AST::Operation(
             Box::new(AST::Identifier("define".into(), Span::zero())),
             vec![
@@ -225,9 +228,16 @@ pub mod test {
         let if_def = AST::Operation(
             Box::new(AST::Identifier("if".into(), Span::zero())),
             vec![
-                AST::Literal(Literal::Boolean(false), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Boolean(true), Span::zero()),
+                AST::Operation(
+                    Box::new(AST::Identifier("if".into(), Span::zero())),
+                    vec![
+                        AST::Literal(Literal::Boolean(false), Span::zero()),
+                        AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+                        AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                    ],
+                ),
+                AST::Literal(Literal::Numeric(Numeric::Int(3)), Span::zero()),
             ],
         );
 
@@ -240,7 +250,139 @@ pub mod test {
     }
 
     #[test]
-    pub fn integration_fib() {
+    pub fn lt_ops() {
+        let lt_def = AST::Operation(
+            Box::new(AST::Identifier("<".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let lt_def_fail = AST::Operation(
+            Box::new(AST::Identifier("<".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let lt_eq_def = AST::Operation(
+            Box::new(AST::Identifier("<=".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let lt_eq_def2 = AST::Operation(
+            Box::new(AST::Identifier("<=".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let lt_eq_def_fail = AST::Operation(
+            Box::new(AST::Identifier("<=".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(3)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let mut i = Interpreter::new();
+
+        assert_eq!(
+            i.interpret(lt_def),
+            Symbol::Value(Literal::Boolean(true))
+        );
+        assert_eq!(
+            i.interpret(lt_def_fail),
+            Symbol::Value(Literal::Boolean(false))
+        );
+        assert_eq!(
+            i.interpret(lt_eq_def),
+            Symbol::Value(Literal::Boolean(true))
+        );
+        assert_eq!(
+            i.interpret(lt_eq_def2),
+            Symbol::Value(Literal::Boolean(true))
+        );
+        assert_eq!(
+            i.interpret(lt_eq_def_fail),
+            Symbol::Value(Literal::Boolean(false))
+        );
+    }
+
+    #[test]
+    pub fn gt_ops() {
+        let lt_def = AST::Operation(
+            Box::new(AST::Identifier(">".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+            ],
+        );
+
+        let lt_def_fail = AST::Operation(
+            Box::new(AST::Identifier(">".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let lt_eq_def = AST::Operation(
+            Box::new(AST::Identifier(">=".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+            ],
+        );
+
+        let lt_eq_def2 = AST::Operation(
+            Box::new(AST::Identifier(">=".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let lt_eq_def_fail = AST::Operation(
+            Box::new(AST::Identifier(">=".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(3)), Span::zero()),
+            ],
+        );
+
+        let mut i = Interpreter::new();
+
+        assert_eq!(
+            i.interpret(lt_def),
+            Symbol::Value(Literal::Boolean(true))
+        );
+        assert_eq!(
+            i.interpret(lt_def_fail),
+            Symbol::Value(Literal::Boolean(false))
+        );
+        assert_eq!(
+            i.interpret(lt_eq_def),
+            Symbol::Value(Literal::Boolean(true))
+        );
+        assert_eq!(
+            i.interpret(lt_eq_def2),
+            Symbol::Value(Literal::Boolean(true))
+        );
+        assert_eq!(
+            i.interpret(lt_eq_def_fail),
+            Symbol::Value(Literal::Boolean(false))
+        );
+    }
+
+    #[test]
+    pub fn fibonacci() {
         let program: String = "(define (fib n) (if (<= n 2) 1 (+ (fib (- n 1)) (fib (- n 2)))))
         (fib 7)
         "

@@ -29,7 +29,10 @@ impl StackFrame {
         new.add_item("*", Symbol::FunctionCall(FunctionCall::Native(mul_op)));
         new.add_item("/", Symbol::FunctionCall(FunctionCall::Native(div_op)));
         new.add_item("if", Symbol::FunctionCall(FunctionCall::Native(if_op)));
-        new.add_item("<=", Symbol::FunctionCall(FunctionCall::Native(lt_eq_op)));
+        new.add_item("<", Symbol::FunctionCall(FunctionCall::Native(lt_cmp)));
+        new.add_item("<=", Symbol::FunctionCall(FunctionCall::Native(lteq_cmp)));
+        new.add_item(">", Symbol::FunctionCall(FunctionCall::Native(gt_cmp)));
+        new.add_item(">=", Symbol::FunctionCall(FunctionCall::Native(gteq_cmp)));
         new
     }
 
@@ -102,26 +105,35 @@ binary_op!(sub_op, l, r, l - r);
 binary_op!(mul_op, l, r, l * r);
 binary_op!(div_op, l, r, l / r);
 
-pub fn lt_eq_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
-    let drain = vec
-        .drain(..)
-        .map(|s| match s {
-            Symbol::Value(l) => l,
-            Symbol::Tokens(ast) => {
-                let Symbol::Value(lit) = interpreter.interpret(ast) else { panic!() };
-                lit
-            }
-            _ => panic!(),
-        }).collect::<Vec<_>>();
+macro_rules! comparison_op {
+    ($name:ident, $l:ident, $r:ident, $op:expr) => {
+        pub fn $name(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+            let drain = vec
+                .drain(..)
+                .map(|s| match s {
+                    Symbol::Value(l) => l,
+                    Symbol::Tokens(ast) => {
+                        let Symbol::Value(lit) = interpreter.interpret(ast) else { panic!() };
+                        lit
+                    }
+                    _ => panic!(),
+                }).collect::<Vec<_>>();
 
-    let mut out = true;
-    drain
-        .windows(2)
-        .for_each(|pairs| match (pairs.get(0).unwrap(), pairs.get(1).unwrap()) {
-            (Literal::Numeric(l), Literal::Numeric(r)) => {
-                out = out && (l <= r)
-            },
-            _ => panic!(),
-        });
-    Symbol::Value(Literal::Boolean(out))
+            let mut out = true;
+            drain
+                .windows(2)
+                .for_each(|pairs| match (pairs.get(0).unwrap(), pairs.get(1).unwrap()) {
+                    (Literal::Numeric($l), Literal::Numeric($r)) => {
+                        out = out && ($op)
+                    },
+                    _ => panic!(),
+                });
+            Symbol::Value(Literal::Boolean(out))
+        }
+    };
 }
+
+comparison_op!(lt_cmp, l, r, l < r);
+comparison_op!(lteq_cmp, l, r, l <= r);
+comparison_op!(gt_cmp, l, r, l > r);
+comparison_op!(gteq_cmp, l, r, l >= r);
