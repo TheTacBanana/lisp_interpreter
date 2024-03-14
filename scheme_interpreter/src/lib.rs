@@ -259,9 +259,10 @@ pub mod test {
             interpreter.interpret(program.next().unwrap()),
             Symbol::Bottom
         );
-        // assert_eq!(
-        interpreter.interpret(program.next().unwrap());
-        // Symbol::Value(Literal::Numeric(Numeric::Int(13)))
-        // );
+
+        assert_eq!(
+            interpreter.interpret(program.next().unwrap()),
+            Symbol::Value(Literal::Numeric(Numeric::Int(13)))
+        );
     }
 }
