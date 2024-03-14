@@ -4,6 +4,7 @@ use scheme_core::{parser::{ast::AST, token::Literal}, token::span::Span};
 
 use crate::symbol::{FunctionCall, Symbol};
 
+#[derive(Debug)]
 pub struct StackFrame {
     pub items: HashMap<String, Symbol>,
 }
