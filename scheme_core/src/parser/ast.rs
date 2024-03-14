@@ -22,7 +22,7 @@ impl std::fmt::Display for AST {
             AST::Identifier(ident, _) => write!(f, "{ident}"),
             AST::Literal(lit, _) => write!(f, "{lit}"),
             AST::List(list) => write!(f, "{list:?}"),
-            AST::Operation(_, _) => panic!(),
+            AST::Operation(ident, params) => write!(f, "{ident} {params:?}"),
         }
     }
 }

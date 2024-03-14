@@ -1,6 +1,12 @@
-use std::{error::Error, ops::{Add, Div, Mul, Sub}};
+use std::{
+    error::Error,
+    ops::{Add, Div, Mul, Sub},
+};
 
-use crate::{lexer::literal::NumericLiteral, token::{Token, TokenKind}};
+use crate::{
+    lexer::literal::NumericLiteral,
+    token::{Token, TokenKind},
+};
 
 pub type ParserToken = Token<ParserTokenKind>;
 
@@ -11,7 +17,7 @@ pub enum ParserTokenKind {
     Literal(Literal),
 }
 
-impl TokenKind for ParserTokenKind { }
+impl TokenKind for ParserTokenKind {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
@@ -41,7 +47,7 @@ impl Literal {
     pub fn is_truthy(&self) -> bool {
         match self {
             Literal::Boolean(false) => false,
-            _ => true
+            _ => true,
         }
     }
 }
@@ -144,6 +150,33 @@ impl Div<Numeric> for Numeric {
         }
     }
 }
+
+impl PartialOrd<Numeric> for Numeric {
+    fn partial_cmp(&self, other: &Numeric) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Numeric::Int(l), Numeric::Int(r)) => Some(l.cmp(r)),
+            (Numeric::Int(l), Numeric::Float(r)) => Some((*l as f32).total_cmp(r)),
+            (Numeric::Float(l), Numeric::Int(r)) => Some(l.total_cmp(&(*r as f32))),
+            (Numeric::Float(l), Numeric::Float(r)) => Some(l.total_cmp(&r)),
+        }
+    }
+}
+
+impl Eq for Numeric {
+
+}
+
+impl Ord for Numeric {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Numeric::Int(l), Numeric::Int(r)) => l.cmp(r),
+            (Numeric::Int(l), Numeric::Float(r)) => (*l as f32).total_cmp(r),
+            (Numeric::Float(l), Numeric::Int(r)) => l.total_cmp(&(*r as f32)),
+            (Numeric::Float(l), Numeric::Float(r)) => l.total_cmp(&r),
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, Copy)]
 pub enum ParseTokenError {

@@ -34,7 +34,6 @@ impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
 
         let mut stack = vec!['('];
         for (i, token) in self.iter().enumerate() {
-            // println!("{:?} {:?}", stack, token);
             let token = token.inner();
             let top = stack.last().unwrap();
             match (top, token) {
