@@ -1,9 +1,11 @@
 use scheme_core::parser::{ast::AST, token::Literal};
 
+use crate::Interpreter;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
     Value(Literal),
-    // Tokens(AST),
+    Tokens(AST),
     FunctionCall(FunctionCall),
     Bottom,
 }
@@ -14,6 +16,7 @@ impl std::fmt::Display for Symbol {
             Symbol::Value(ast) => write!(f, "{ast}")?,
             Symbol::FunctionCall(FunctionCall::Native(_)) => write!(f, "NativeFn")?,
             Symbol::FunctionCall(FunctionCall::Defined(_, _)) => write!(f, "UserFn")?,
+            Symbol::Tokens(ast) => write!(f, "{ast}")?,
             Symbol::Bottom => (),
         }
         Ok(())
@@ -23,7 +26,7 @@ impl std::fmt::Display for Symbol {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FunctionCall {
     /// Native function call
-    Native(fn(Vec<Symbol>) -> Symbol),
+    Native(fn(&mut Interpreter, Vec<Symbol>) -> Symbol),
 
     /// List of Param Identifiers,
     Defined(Vec<String>, AST)

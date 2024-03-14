@@ -1,4 +1,4 @@
-use std::{error::Error, ops::{Add, Sub}};
+use std::{error::Error, ops::{Add, Div, Mul, Sub}};
 
 use crate::{lexer::literal::NumericLiteral, token::{Token, TokenKind}};
 
@@ -36,6 +36,13 @@ impl Literal {
 
     pub fn from_numeric(lit: NumericLiteral) -> Self {
         Literal::Numeric(Numeric::from_literal(lit))
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Literal::Boolean(false) => false,
+            _ => true
+        }
     }
 }
 
@@ -108,6 +115,32 @@ impl Sub<Numeric> for Numeric {
             (Numeric::Int(l), Numeric::Float(r)) => Numeric::Float(l as f32 - r),
             (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l - r as f32),
             (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l - r),
+        }
+    }
+}
+
+impl Mul<Numeric> for Numeric {
+    type Output = Numeric;
+
+    fn mul(self, rhs: Numeric) -> Self::Output {
+        match (self, rhs) {
+            (Numeric::Int(l), Numeric::Int(r)) => Numeric::Int(l * r),
+            (Numeric::Int(l), Numeric::Float(r)) => Numeric::Float(l as f32 * r),
+            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l * r as f32),
+            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l * r),
+        }
+    }
+}
+
+impl Div<Numeric> for Numeric {
+    type Output = Numeric;
+
+    fn div(self, rhs: Numeric) -> Self::Output {
+        match (self, rhs) {
+            (Numeric::Int(l), Numeric::Int(r)) => Numeric::Int(l / r),
+            (Numeric::Int(l), Numeric::Float(r)) => Numeric::Float(l as f32 / r),
+            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l / r as f32),
+            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l / r),
         }
     }
 }

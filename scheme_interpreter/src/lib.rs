@@ -28,7 +28,11 @@ impl Interpreter {
     fn interpret(&mut self, ast: AST) -> Symbol {
         match ast {
             AST::Literal(l, _) => Symbol::Value(l),
-            AST::Identifier(ident, _) => self.resolve_symbol(&ident).cloned().unwrap(),
+            AST::Identifier(ident, _) => match self.resolve_symbol(&ident).cloned().unwrap() {
+                v @ Symbol::Value(_) => v,
+                Symbol::Tokens(ast) => self.interpret(ast),
+                _ => panic!(),
+            },
             AST::Operation(op, params) => self.operation(*op, params),
             AST::List(_) => todo!(),
         }
@@ -67,10 +71,7 @@ impl Interpreter {
                 Symbol::Bottom
             }
             AST::Identifier(ident, _) => {
-                let params = params
-                    .drain(..)
-                    .map(|ast| self.interpret(ast))
-                    .collect::<Vec<_>>();
+                let params = params.drain(..).map(|ast| Symbol::Tokens(ast)).collect();
                 match self.resolve_symbol(&ident) {
                     Some(Symbol::FunctionCall(f)) => self.func_call(f.clone(), params),
                     _ => panic!(),
@@ -110,7 +111,7 @@ impl Interpreter {
 
     fn func_call(&mut self, f: FunctionCall, params: Vec<Symbol>) -> Symbol {
         match f {
-            FunctionCall::Native(f) => f(params),
+            FunctionCall::Native(f) => f(self, params),
             FunctionCall::Defined(param_names, ast) => {
                 self.create_stack_frame();
                 let stack = self.top_stack();
@@ -203,6 +204,25 @@ pub mod test {
     }
 
     #[test]
+    pub fn if_op() {
+        let if_def = AST::Operation(
+            Box::new(AST::Identifier("if".into(), Span::zero())),
+            vec![
+                AST::Literal(Literal::Boolean(false), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+            ],
+        );
+
+        let mut i = Interpreter::new();
+
+        assert_eq!(
+            i.interpret(if_def),
+            Symbol::Value(Literal::Numeric(Numeric::Int(2)))
+        );
+    }
+
+    #[test]
     pub fn integration_fib() {
         let program: String = "(define (fib n)
         (if (<= n 2)
@@ -221,8 +241,14 @@ pub mod test {
         parser_result.error_writer(&program);
 
         let mut program = parser_result.ast.drain(..);
-        assert_eq!(interpreter.interpret(program.next().unwrap()), Symbol::Bottom);
+        assert_eq!(
+            interpreter.interpret(program.next().unwrap()),
+            Symbol::Bottom
+        );
         println!("Defined");
-        assert_eq!(interpreter.interpret(program.next().unwrap()), Symbol::Value(Literal::Numeric(Numeric::Int(13))));
+        assert_eq!(
+            interpreter.interpret(program.next().unwrap()),
+            Symbol::Value(Literal::Numeric(Numeric::Int(13)))
+        );
     }
 }
