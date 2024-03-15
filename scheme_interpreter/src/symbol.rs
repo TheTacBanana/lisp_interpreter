@@ -35,3 +35,9 @@ pub enum FunctionCall {
     /// List of Param Identifiers,
     Defined(Vec<String>, AST)
 }
+
+impl Into<Symbol> for FunctionCall {
+    fn into(self) -> Symbol {
+        Symbol::FunctionCall(self)
+    }
+}

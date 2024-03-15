@@ -47,7 +47,7 @@ fn main() {
         }
 
         for ast in parser_result.ast {
-            interpreter.run_ast(ast);
+            println!("{}", interpreter.interpret(ast));
         }
     }
 }

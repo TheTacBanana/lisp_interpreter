@@ -24,20 +24,22 @@ impl StackFrame {
 
     pub fn prelude() -> Self {
         let mut new = Self::new();
-        new.add_item("+", Symbol::FunctionCall(FunctionCall::Native(add_op)));
-        new.add_item("-", Symbol::FunctionCall(FunctionCall::Native(sub_op)));
-        new.add_item("*", Symbol::FunctionCall(FunctionCall::Native(mul_op)));
-        new.add_item("/", Symbol::FunctionCall(FunctionCall::Native(div_op)));
+        new.add_item("+", FunctionCall::Native(add_op).into());
+        new.add_item("-", FunctionCall::Native(sub_op).into());
+        new.add_item("*", FunctionCall::Native(mul_op).into());
+        new.add_item("/", FunctionCall::Native(div_op).into());
 
-        new.add_item("<", Symbol::FunctionCall(FunctionCall::Native(lt_cmp)));
-        new.add_item("<=", Symbol::FunctionCall(FunctionCall::Native(lteq_cmp)));
-        new.add_item(">", Symbol::FunctionCall(FunctionCall::Native(gt_cmp)));
-        new.add_item(">=", Symbol::FunctionCall(FunctionCall::Native(gteq_cmp)));
+        new.add_item("<", FunctionCall::Native(lt_cmp).into());
+        new.add_item("<=", FunctionCall::Native(lteq_cmp).into());
+        new.add_item(">", FunctionCall::Native(gt_cmp).into());
+        new.add_item(">=", FunctionCall::Native(gteq_cmp).into());
 
-        new.add_item("if", Symbol::FunctionCall(FunctionCall::Native(if_op)));
+        new.add_item("write", FunctionCall::Native(write_op).into());
 
-        new.add_item("car", Symbol::FunctionCall(FunctionCall::Native(car_op)));
-        new.add_item("cdr", Symbol::FunctionCall(FunctionCall::Native(cdr_op)));
+        new.add_item("if", FunctionCall::Native(if_op).into());
+
+        new.add_item("car", FunctionCall::Native(car_op).into());
+        new.add_item("cdr", FunctionCall::Native(cdr_op).into());
         new
     }
 
@@ -52,6 +54,16 @@ impl StackFrame {
     pub fn add_item(&mut self, symbol: &str, value: Symbol) {
         self.items.insert(symbol.to_string(), value);
     }
+}
+
+pub fn write_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    assert!(vec.len() == 1);
+    let s = match vec.drain(..).next().unwrap() {
+        Symbol::Tokens(ast) => interpreter.interpret(ast),
+        v => v
+    };
+    println!("{}", s);
+    Symbol::Bottom
 }
 
 pub fn if_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {

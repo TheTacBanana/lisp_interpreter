@@ -20,12 +20,7 @@ impl Interpreter {
         }
     }
 
-    pub fn run_ast(&mut self, ast: AST) {
-        let res = self.interpret(ast);
-        println!("{res}")
-    }
-
-    fn interpret(&mut self, ast: AST) -> Symbol {
+    pub fn interpret(&mut self, ast: AST) -> Symbol {
         match ast {
             AST::Literal(l, _) => Symbol::Value(l),
             AST::Identifier(ident, _) => match self.resolve_symbol(&ident).cloned().unwrap() {
