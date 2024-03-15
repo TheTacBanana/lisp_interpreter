@@ -28,11 +28,16 @@ impl StackFrame {
         new.add_item("-", Symbol::FunctionCall(FunctionCall::Native(sub_op)));
         new.add_item("*", Symbol::FunctionCall(FunctionCall::Native(mul_op)));
         new.add_item("/", Symbol::FunctionCall(FunctionCall::Native(div_op)));
-        new.add_item("if", Symbol::FunctionCall(FunctionCall::Native(if_op)));
+
         new.add_item("<", Symbol::FunctionCall(FunctionCall::Native(lt_cmp)));
         new.add_item("<=", Symbol::FunctionCall(FunctionCall::Native(lteq_cmp)));
         new.add_item(">", Symbol::FunctionCall(FunctionCall::Native(gt_cmp)));
         new.add_item(">=", Symbol::FunctionCall(FunctionCall::Native(gteq_cmp)));
+
+        new.add_item("if", Symbol::FunctionCall(FunctionCall::Native(if_op)));
+
+        new.add_item("car", Symbol::FunctionCall(FunctionCall::Native(car_op)));
+        new.add_item("cdr", Symbol::FunctionCall(FunctionCall::Native(cdr_op)));
         new
     }
 
@@ -137,3 +142,27 @@ comparison_op!(lt_cmp, l, r, l < r);
 comparison_op!(lteq_cmp, l, r, l <= r);
 comparison_op!(gt_cmp, l, r, l > r);
 comparison_op!(gteq_cmp, l, r, l >= r);
+
+pub fn car_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    assert!(vec.len() == 1);
+    match vec.drain(..).next().unwrap() {
+        Symbol::List(head, _) => *head,
+        Symbol::Tokens(l) => {
+            let Symbol::List(head, _) = interpreter.interpret(l) else { panic!() };
+            *head
+        },
+        e => panic!("Unexpected {e}"),
+    }
+}
+
+pub fn cdr_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    assert!(vec.len() == 1);
+    match vec.drain(..).next().unwrap() {
+        Symbol::List(_, tail) => *tail,
+        Symbol::Tokens(l) => {
+            let Symbol::List(_, tail) = interpreter.interpret(l) else { panic!() };
+            *tail
+        },
+        e => panic!("Unexpected {e}"),
+    }
+}

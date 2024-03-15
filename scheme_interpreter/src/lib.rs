@@ -29,9 +29,9 @@ impl Interpreter {
         match ast {
             AST::Literal(l, _) => Symbol::Value(l),
             AST::Identifier(ident, _) => match self.resolve_symbol(&ident).cloned().unwrap() {
-                v @ Symbol::Value(_) => v,
+                v @ (Symbol::Value(_) | Symbol::List(_, _)) => v,
                 Symbol::Tokens(ast) => self.interpret(ast),
-                _ => panic!(),
+                _ => panic!()
             },
             AST::Operation(op, params) => self.operation(*op, params),
 
