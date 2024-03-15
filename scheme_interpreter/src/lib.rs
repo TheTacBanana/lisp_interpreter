@@ -26,7 +26,6 @@ impl Interpreter {
     }
 
     fn interpret(&mut self, ast: AST) -> Symbol {
-        println!("{:?}", ast);
         match ast {
             AST::Literal(l, _) => Symbol::Value(l),
             AST::Identifier(ident, _) => match self.resolve_symbol(&ident).cloned().unwrap() {
@@ -35,7 +34,15 @@ impl Interpreter {
                 _ => panic!(),
             },
             AST::Operation(op, params) => self.operation(*op, params),
-            AST::List(_) => todo!(),
+
+            AST::List(head, Some(tail)) => {
+                let head = self.interpret(*head);
+                Symbol::List(Box::new(head), Box::new(Symbol::Tokens(*tail)))
+            },
+            AST::List(head, None) => {
+                let head = self.interpret(*head);
+                Symbol::List(Box::new(head), Box::new(Symbol::Bottom))
+            }
         }
     }
 
@@ -107,12 +114,10 @@ impl Interpreter {
     }
 
     fn create_stack_frame(&mut self) {
-        println!("Stack++");
         self.stack.push(StackFrame::new())
     }
 
     fn pop_stack_frame(&mut self) {
-        println!("Stack--");
         self.stack.pop();
     }
 

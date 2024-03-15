@@ -159,7 +159,7 @@ impl Parser {
             let item = Self::parse_item(&mut stream)?;
             items.push(item);
         }
-        Ok(AST::List(items))
+        Ok(AST::list_from_vec(items))
     }
 }
 

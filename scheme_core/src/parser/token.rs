@@ -61,13 +61,12 @@ impl Into<ParserTokenKind> for Literal {
 impl std::fmt::Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Literal::String(s) => write!(f, "\"{s}\"")?,
-            Literal::Character(c) => write!(f, "'{c}'")?,
-            Literal::Numeric(n) => write!(f, "{n}")?,
-            Literal::Boolean(true) => write!(f, "true")?,
-            Literal::Boolean(false) => write!(f, "false")?,
+            Literal::String(s) => write!(f, "\"{s}\""),
+            Literal::Character(c) => write!(f, "'{c}'"),
+            Literal::Numeric(n) => write!(f, "{n}"),
+            Literal::Boolean(true) => write!(f, "true"),
+            Literal::Boolean(false) => write!(f, "false"),
         }
-        Ok(())
     }
 }
 
