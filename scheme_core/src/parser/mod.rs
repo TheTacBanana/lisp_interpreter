@@ -1,11 +1,13 @@
 use core::panic;
 
 use crate::{
-    error::{ErrorWriter, IndividualError}, lexer::token::{LexerToken, LexerTokenKind}, token::{
+    error::{ErrorWriter, IndividualError},
+    lexer::token::{LexerToken, LexerTokenKind},
+    token::{
         span::Span,
         stream::{TokenStream, TokenStreamExt},
         Token,
-    }
+    },
 };
 
 use self::{
@@ -62,16 +64,21 @@ impl Parser {
     pub fn parse(mut self) -> ParseResult {
         let mut errors = Vec::new();
         let mut items = Vec::new();
-        while !self.tokens.is_empty() {
-            match Self::parse_item(&mut self.tokens) { // TODO: Make work with no brackets
+        match self.tokens.peek_front().unwrap() {
+            ParserTokenKind::Symbol(_) | ParserTokenKind::Literal(_) => {
+                while !self.tokens.is_empty() {
+                    match Self::parse_item(&mut self.tokens) {
+                        Ok(item) => items.push(item),
+                        Err(e) => errors.push(e),
+                    };
+                }
+            }
+            ParserTokenKind::Identifier(_) => match Self::parse_block(self.tokens) {
                 Ok(item) => items.push(item),
                 Err(e) => errors.push(e),
-            };
-        }
-        ParseResult {
-            ast: items,
-            errors,
-        }
+            },
+        };
+        ParseResult { ast: items, errors }
     }
 
     fn parse_item(
@@ -136,7 +143,7 @@ impl Parser {
             }
             ParserTokenKind::Identifier(_) => todo!(),
             ParserTokenKind::Literal(_) => todo!(),
-            _ => panic!("No Item Found")
+            _ => panic!("No Item Found"),
         }
     }
 
@@ -161,7 +168,7 @@ pub struct ParseResult {
 impl ParseResult {
     pub fn error_writer(&self, file: &String) -> Option<ErrorWriter<ParseTokenError>> {
         if self.errors.len() == 0 {
-            return None
+            return None;
         }
 
         let lines = file.lines().collect::<Vec<_>>();
@@ -171,19 +178,15 @@ impl ParseResult {
             let span = e.0;
             let whole_line = lines.get(span.start.line).unwrap().to_string();
 
-            formatted_errors.push(
-                IndividualError {
-                    whole_line,
-                    span,
-                    error: e.1,
-                }
-            )
+            formatted_errors.push(IndividualError {
+                whole_line,
+                span,
+                error: e.1,
+            })
         }
 
-        Some(
-            ErrorWriter {
-                errors: formatted_errors,
-            }
-        )
+        Some(ErrorWriter {
+            errors: formatted_errors,
+        })
     }
 }
