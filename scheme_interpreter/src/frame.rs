@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 
-use crate::{object::{Func, Object}, InterpreterContext};
+use crate::{object::{Func, Object}, InterpreterContext, ObjectPointer};
 
 pub struct Frame {
-    f_name: String,
+    name: String,
+    stack_index: usize,
     locals: HashMap<String, Object>,
 }
 
 impl Frame {
-    pub fn new(f_name: String, body: Func) -> Self {
+    pub fn new(stack_index: usize, name: String) -> Self {
         Self {
-            f_name,
+            name,
+            stack_index,
             locals: HashMap::new(),
         }
     }
