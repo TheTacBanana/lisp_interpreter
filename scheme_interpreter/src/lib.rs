@@ -81,7 +81,7 @@ impl Interpreter {
                         s => s,
                     }
                 } else {
-                    panic!()
+                    panic!("{ident}")
                 }
             }
             _ => panic!(),

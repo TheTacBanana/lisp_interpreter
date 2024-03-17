@@ -36,6 +36,8 @@ impl StackFrame {
 
         new.add_item("write", FunctionCall::Native(write_op).into());
 
+        new.add_item("lambda", FunctionCall::Native(lambda).into());
+
         new.add_item("if", FunctionCall::Native(if_op).into());
 
         new.add_item("car", FunctionCall::Native(car_op).into());
@@ -89,6 +91,27 @@ pub fn if_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
         }
     } else {
         panic!()
+    }
+}
+
+pub fn lambda(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    let mut params = vec.drain(..);
+    match params.next().unwrap() {
+        Symbol::Tokens(AST::Operation(var1, mut varxs)) => {
+            let mut param_names = vec![*var1];
+            param_names.extend(varxs.drain(..));
+            let param_names = param_names
+                .drain(..)
+                .map(|p| match p {
+                    AST::Identifier(i, _) => i,
+                    _ => panic!(),
+                })
+                .collect();
+            let Symbol::Tokens(f_ast) = params.next().unwrap() else { panic!() };
+
+            Symbol::FunctionCall(FunctionCall::Defined(param_names, f_ast))
+        }
+        _ => panic!(),
     }
 }
 
