@@ -42,6 +42,7 @@ impl StackFrame {
 
         new.add_item("car", FunctionCall::Native(car_op).into());
         new.add_item("cdr", FunctionCall::Native(cdr_op).into());
+        new.add_item("cons", FunctionCall::Native(cons_op).into());
         new
     }
 
@@ -200,4 +201,15 @@ pub fn cdr_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
         },
         e => panic!("Unexpected {e}"),
     }
+}
+
+pub fn cons_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    assert!(vec.len() == 2);
+    let mut drain = vec.drain(..);
+    let head = drain.next().unwrap();
+    let tail = match drain.next().unwrap() {
+        Symbol::Tokens(ast) => interpreter.interpret(ast),
+        s => s
+    };
+    Symbol::List(Box::new(head), Box::new(tail))
 }
