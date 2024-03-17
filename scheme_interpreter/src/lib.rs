@@ -21,43 +21,44 @@ impl Interpreter {
     }
 
     pub fn interpret(&mut self, ast: AST) -> Symbol {
+        // println!("{:?}", ast);
         match ast {
-            AST::Literal(l, _) => Symbol::Value(l),
-            AST::Identifier(ident, _) => match self.resolve_symbol(&ident).cloned().unwrap() {
-                v @ (Symbol::Value(_) | Symbol::List(_, _)) => v,
+            AST::Literal(l) => Symbol::Value(l),
+            AST::Identifier(ident) => match self.resolve_symbol(&ident).cloned().unwrap() {
                 Symbol::Tokens(ast) => self.interpret(ast),
-                _ => panic!()
+                v => v,
             },
             AST::Operation(op, params) => self.operation(*op, params),
 
-            AST::List(head, Some(tail)) => {
-                let head = self.interpret(*head);
-                Symbol::List(Box::new(head), Box::new(Symbol::Tokens(*tail)))
-            },
-            AST::List(head, None) => {
+            AST::List(head, tail) if *tail == AST::EmptyList => {
                 let head = self.interpret(*head);
                 Symbol::List(Box::new(head), Box::new(Symbol::Bottom))
             }
+            AST::List(head, tail) => {
+                let head = self.interpret(*head);
+                Symbol::List(Box::new(head), Box::new(Symbol::Tokens(*tail)))
+            }
+            AST::EmptyList => Symbol::Bottom,
         }
     }
 
     fn operation(&mut self, op: AST, mut params: Vec<AST>) -> Symbol {
         match op {
-            AST::Identifier(def, _) if def == "define" => {
+            AST::Identifier(def) if def == "define" => {
                 let mut params = params.drain(..);
                 match params.next().unwrap() {
-                    AST::Identifier(ident_name, _) => {
+                    AST::Identifier(ident_name) => {
                         let value = self.interpret(params.next().unwrap());
                         self.define_symbol(&ident_name, value);
                     }
                     AST::Operation(f_name, mut param_names) => {
-                        let AST::Identifier(f_name, _) = *f_name else {
+                        let AST::Identifier(f_name) = *f_name else {
                             panic!()
                         };
                         let param_names = param_names
                             .drain(..)
                             .map(|p| match p {
-                                AST::Identifier(i, _) => i,
+                                AST::Identifier(i) => i,
                                 _ => panic!(),
                             })
                             .collect();
@@ -72,16 +73,17 @@ impl Interpreter {
                 }
                 Symbol::Bottom
             }
-            AST::Identifier(ident, _) => {
+            AST::Identifier(ident) => {
                 let params = params.drain(..).map(|ast| Symbol::Tokens(ast)).collect();
-                if let Some(Symbol::FunctionCall(f)) = self.resolve_symbol(&ident) {
-                    let symbol = self.func_call(f.clone(), params);
-                    match symbol {
-                        Symbol::Tokens(ast) => self.interpret(ast),
-                        s => s,
+                match self.resolve_symbol(&ident) {
+                    Some(Symbol::FunctionCall(f)) => {
+                        let symbol = self.func_call(f.clone(), params);
+                        match symbol {
+                            Symbol::Tokens(ast) => self.interpret(ast),
+                            s => s,
+                        }
                     }
-                } else {
-                    panic!("{ident}")
+                    e => panic!("{ident} {e:?}"),
                 }
             }
             _ => panic!(),
@@ -167,13 +169,13 @@ pub mod test {
     #[test]
     pub fn define_value() {
         let pi_def = AST::Operation(
-            Box::new(AST::Identifier("define".into(), Span::zero())),
+            Box::new(AST::Identifier("define".into())),
             vec![
-                AST::Identifier("pi".into(), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Float(3.14)), Span::zero()),
+                AST::Identifier("pi".into()),
+                AST::Literal(Literal::Numeric(Numeric::Float(3.14))),
             ],
         );
-        let pi_use = AST::Identifier("pi".into(), Span::zero());
+        let pi_use = AST::Identifier("pi".into());
 
         let mut i = Interpreter::new();
 
@@ -187,30 +189,30 @@ pub mod test {
     #[test]
     pub fn define_func() {
         let f_def = AST::Operation(
-            Box::new(AST::Identifier("define".into(), Span::zero())),
+            Box::new(AST::Identifier("define".into())),
             vec![
                 AST::Operation(
-                    Box::new(AST::Identifier("add".into(), Span::zero())),
+                    Box::new(AST::Identifier("add".into())),
                     vec![
-                        AST::Identifier("x".into(), Span::zero()),
-                        AST::Identifier("y".into(), Span::zero()),
+                        AST::Identifier("x".into()),
+                        AST::Identifier("y".into()),
                     ],
                 ),
                 AST::Operation(
-                    Box::new(AST::Identifier("+".into(), Span::zero())),
+                    Box::new(AST::Identifier("+".into())),
                     vec![
-                        AST::Identifier("x".into(), Span::zero()),
-                        AST::Identifier("y".into(), Span::zero()),
+                        AST::Identifier("x".into()),
+                        AST::Identifier("y".into()),
                     ],
                 ),
             ],
         );
 
         let f_use = AST::Operation(
-            Box::new(AST::Identifier("add".into(), Span::zero())),
+            Box::new(AST::Identifier("add".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(1))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
@@ -226,18 +228,18 @@ pub mod test {
     #[test]
     pub fn if_op() {
         let if_def = AST::Operation(
-            Box::new(AST::Identifier("if".into(), Span::zero())),
+            Box::new(AST::Identifier("if".into())),
             vec![
-                AST::Literal(Literal::Boolean(true), Span::zero()),
+                AST::Literal(Literal::Boolean(true)),
                 AST::Operation(
-                    Box::new(AST::Identifier("if".into(), Span::zero())),
+                    Box::new(AST::Identifier("if".into())),
                     vec![
-                        AST::Literal(Literal::Boolean(false), Span::zero()),
-                        AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
-                        AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                        AST::Literal(Literal::Boolean(false)),
+                        AST::Literal(Literal::Numeric(Numeric::Int(1))),
+                        AST::Literal(Literal::Numeric(Numeric::Int(2))),
                     ],
                 ),
-                AST::Literal(Literal::Numeric(Numeric::Int(3)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(3))),
             ],
         );
 
@@ -252,51 +254,48 @@ pub mod test {
     #[test]
     pub fn lt_ops() {
         let lt_def = AST::Operation(
-            Box::new(AST::Identifier("<".into(), Span::zero())),
+            Box::new(AST::Identifier("<".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(1))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
         let lt_def_fail = AST::Operation(
-            Box::new(AST::Identifier("<".into(), Span::zero())),
+            Box::new(AST::Identifier("<".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
         let lt_eq_def = AST::Operation(
-            Box::new(AST::Identifier("<=".into(), Span::zero())),
+            Box::new(AST::Identifier("<=".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(1))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
         let lt_eq_def2 = AST::Operation(
-            Box::new(AST::Identifier("<=".into(), Span::zero())),
+            Box::new(AST::Identifier("<=".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
         let lt_eq_def_fail = AST::Operation(
-            Box::new(AST::Identifier("<=".into(), Span::zero())),
+            Box::new(AST::Identifier("<=".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(3)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(3))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
         let mut i = Interpreter::new();
 
-        assert_eq!(
-            i.interpret(lt_def),
-            Symbol::Value(Literal::Boolean(true))
-        );
+        assert_eq!(i.interpret(lt_def), Symbol::Value(Literal::Boolean(true)));
         assert_eq!(
             i.interpret(lt_def_fail),
             Symbol::Value(Literal::Boolean(false))
@@ -318,51 +317,48 @@ pub mod test {
     #[test]
     pub fn gt_ops() {
         let lt_def = AST::Operation(
-            Box::new(AST::Identifier(">".into(), Span::zero())),
+            Box::new(AST::Identifier(">".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
+                AST::Literal(Literal::Numeric(Numeric::Int(1))),
             ],
         );
 
         let lt_def_fail = AST::Operation(
-            Box::new(AST::Identifier(">".into(), Span::zero())),
+            Box::new(AST::Identifier(">".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
         let lt_eq_def = AST::Operation(
-            Box::new(AST::Identifier(">=".into(), Span::zero())),
+            Box::new(AST::Identifier(">=".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(1)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
+                AST::Literal(Literal::Numeric(Numeric::Int(1))),
             ],
         );
 
         let lt_eq_def2 = AST::Operation(
-            Box::new(AST::Identifier(">=".into(), Span::zero())),
+            Box::new(AST::Identifier(">=".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
             ],
         );
 
         let lt_eq_def_fail = AST::Operation(
-            Box::new(AST::Identifier(">=".into(), Span::zero())),
+            Box::new(AST::Identifier(">=".into())),
             vec![
-                AST::Literal(Literal::Numeric(Numeric::Int(2)), Span::zero()),
-                AST::Literal(Literal::Numeric(Numeric::Int(3)), Span::zero()),
+                AST::Literal(Literal::Numeric(Numeric::Int(2))),
+                AST::Literal(Literal::Numeric(Numeric::Int(3))),
             ],
         );
 
         let mut i = Interpreter::new();
 
-        assert_eq!(
-            i.interpret(lt_def),
-            Symbol::Value(Literal::Boolean(true))
-        );
+        assert_eq!(i.interpret(lt_def), Symbol::Value(Literal::Boolean(true)));
         assert_eq!(
             i.interpret(lt_def_fail),
             Symbol::Value(Literal::Boolean(false))

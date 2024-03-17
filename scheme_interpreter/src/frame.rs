@@ -24,6 +24,7 @@ impl StackFrame {
 
     pub fn prelude() -> Self {
         let mut new = Self::new();
+        new.add_item("eq?", FunctionCall::Native(eq_cmp).into());
         new.add_item("+", FunctionCall::Native(add_op).into());
         new.add_item("-", FunctionCall::Native(sub_op).into());
         new.add_item("*", FunctionCall::Native(mul_op).into());
@@ -39,10 +40,12 @@ impl StackFrame {
         new.add_item("lambda", FunctionCall::Native(lambda).into());
 
         new.add_item("if", FunctionCall::Native(if_op).into());
+        new.add_item("not", FunctionCall::Native(not_op).into());
 
         new.add_item("car", FunctionCall::Native(car_op).into());
         new.add_item("cdr", FunctionCall::Native(cdr_op).into());
         new.add_item("cons", FunctionCall::Native(cons_op).into());
+        new.add_item("empty?", FunctionCall::Native(empty_op).into());
         new
     }
 
@@ -61,8 +64,16 @@ impl StackFrame {
 
 pub fn write_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
     assert!(vec.len() == 1);
+    // println!("{vec:?}");
     let s = match vec.drain(..).next().unwrap() {
         Symbol::Tokens(ast) => interpreter.interpret(ast),
+        Symbol::List(head, tail) => {
+            let s = match *tail {
+                Symbol::Tokens(tail) => interpreter.interpret(tail),
+                v => v,
+            };
+            Symbol::List(head, Box::new(s))
+        }
         v => v
     };
     println!("{}", s);
@@ -95,6 +106,17 @@ pub fn if_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
     }
 }
 
+pub fn not_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    let mut drain = vec.drain(..);
+    let symbol = match drain.next().unwrap() {
+        s @ Symbol::Value(_) => s,
+        Symbol::Tokens(ast) => interpreter.interpret(ast),
+        _ => panic!(),
+    };
+    let Symbol::Value(lit) = symbol else { panic!() };
+    Symbol::Value(Literal::from_bool(!lit.is_truthy()))
+}
+
 pub fn lambda(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
     let mut params = vec.drain(..);
     match params.next().unwrap() {
@@ -104,7 +126,7 @@ pub fn lambda(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
             let param_names = param_names
                 .drain(..)
                 .map(|p| match p {
-                    AST::Identifier(i, _) => i,
+                    AST::Identifier(i) => i,
                     _ => panic!(),
                 })
                 .collect();
@@ -112,7 +134,12 @@ pub fn lambda(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
 
             Symbol::FunctionCall(FunctionCall::Defined(param_names, f_ast))
         }
-        _ => panic!(),
+        Symbol::Tokens(AST::Identifier(var1)) => {
+            let param_names = vec![var1];
+            let Symbol::Tokens(f_ast) = params.next().unwrap() else { panic!() };
+            Symbol::FunctionCall(FunctionCall::Defined(param_names, f_ast))
+        }
+        e => panic!("{e:?}"),
     }
 }
 
@@ -174,6 +201,7 @@ macro_rules! comparison_op {
     };
 }
 
+comparison_op!(eq_cmp, l, r, l == r);
 comparison_op!(lt_cmp, l, r, l < r);
 comparison_op!(lteq_cmp, l, r, l <= r);
 comparison_op!(gt_cmp, l, r, l > r);
@@ -184,9 +212,13 @@ pub fn car_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
     match vec.drain(..).next().unwrap() {
         Symbol::List(head, _) => *head,
         Symbol::Tokens(l) => {
-            let Symbol::List(head, _) = interpreter.interpret(l) else { panic!() };
-            *head
+            match interpreter.interpret(l) {
+                v @ Symbol::Value(_) => v,
+                Symbol::List(head, _) => *head,
+                e => panic!("{e:?}")
+            }
         },
+        v @ Symbol::Value(_) => v,
         e => panic!("Unexpected {e}"),
     }
 }
@@ -206,10 +238,27 @@ pub fn cdr_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
 pub fn cons_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
     assert!(vec.len() == 2);
     let mut drain = vec.drain(..);
-    let head = drain.next().unwrap();
-    let tail = match drain.next().unwrap() {
-        Symbol::Tokens(ast) => interpreter.interpret(ast),
-        s => s
+
+    let head = match drain.next().unwrap() {
+        Symbol::Tokens(l) => interpreter.interpret(l),
+        v  => v,
     };
+    let tail = match drain.next().unwrap() {
+        Symbol::Tokens(l) => interpreter.interpret(l),
+        v  => v,
+    };
+
     Symbol::List(Box::new(head), Box::new(tail))
+}
+
+pub fn empty_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    assert!(vec.len() == 1);
+    match vec.drain(..).next().unwrap() {
+        Symbol::Bottom => Symbol::Value(Literal::Boolean(true)),
+        Symbol::Tokens(ast) => match interpreter.interpret(ast) {
+            Symbol::Bottom => Symbol::Value(Literal::Boolean(true)),
+            _ => Symbol::Value(Literal::Boolean(false)),
+        }
+        _ => Symbol::Value(Literal::Boolean(false)),
+    }
 }

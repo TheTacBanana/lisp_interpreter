@@ -88,8 +88,8 @@ impl Parser {
 
         let Token { kind, span } = stream.pop_front().unwrap();
         match kind {
-            TK::Literal(lit) => Ok(AST::Literal(lit, span)),
-            TK::Identifier(ident) => Ok(AST::Identifier(ident, span)),
+            TK::Literal(lit) => Ok(AST::Literal(lit)),
+            TK::Identifier(ident) => Ok(AST::Identifier(ident)),
 
             // New block
             b @ TK::Symbol('(') => {

@@ -21,7 +21,7 @@ impl std::fmt::Display for Symbol {
             Symbol::FunctionCall(FunctionCall::Native(_)) => write!(f, "NativeFn")?,
             Symbol::FunctionCall(FunctionCall::Defined(_, _)) => write!(f, "UserFn")?,
             Symbol::Tokens(ast) => write!(f, "{ast}")?,
-            Symbol::Bottom => (),
+            Symbol::Bottom => write!(f, "()")?,
         }
         Ok(())
     }
