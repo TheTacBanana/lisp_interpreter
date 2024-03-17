@@ -103,9 +103,6 @@ impl Parser {
                 Self::parse_block(block)
             }
 
-            // List
-            // TK::Symbol()
-
             // Quote
             TK::Symbol('\'') => Self::parse_quoted(stream),
 
@@ -145,8 +142,8 @@ impl Parser {
 
                 Self::parse_list(block)
             }
-            ParserTokenKind::Identifier(_) => todo!(),
-            ParserTokenKind::Literal(_) => todo!(),
+            ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident)),
+            ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit)),
             _ => panic!("No Item Found"),
         }
     }
