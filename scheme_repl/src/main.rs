@@ -4,7 +4,7 @@ use scheme_core::{
     lexer::{self, Lexer},
     parser::Parser,
 };
-use scheme_interpreter::Interpreter;
+use scheme_interpreter::InterpreterContext;
 
 fn main() {
     let verbose = std::env::args().any(|s| s.to_uppercase() == "V");
@@ -14,7 +14,7 @@ fn main() {
         println!("Scheme REPL:");
     }
 
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = InterpreterContext::new();
     loop {
         print!("> ");
         std::io::stdout().flush().unwrap();
@@ -47,7 +47,8 @@ fn main() {
         }
 
         for ast in parser_result.ast {
-            println!("{}", interpreter.interpret(ast));
+            interpreter.interpret(ast).unwrap();
+            println!("{:?}", interpreter.pop_data().unwrap());
         }
     }
 }

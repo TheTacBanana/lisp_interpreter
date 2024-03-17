@@ -1,6 +1,6 @@
 use scheme_core::parser::{ast::AST, token::Literal};
 
-use crate::InterpreterContext;
+use crate::{InterpreterContext, InterpreterResult};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ObjectPointer {
@@ -31,8 +31,8 @@ impl std::fmt::Display for Object {
     }
 }
 
-pub type NativeFunc = fn(&mut InterpreterContext, usize);
-pub type MacroFunc = fn(&mut InterpreterContext, Vec<AST>);
+pub type NativeFunc = fn(&mut InterpreterContext, usize) -> InterpreterResult<()>;
+pub type MacroFunc = fn(&mut InterpreterContext, Vec<AST>) -> InterpreterResult<()>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Func {

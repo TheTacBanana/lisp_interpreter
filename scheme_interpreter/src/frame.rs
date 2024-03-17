@@ -24,4 +24,8 @@ impl Frame {
     pub fn get_local_mut(&mut self, ident: &str) -> Option<&mut Object> {
         self.locals.get_mut(ident)
     }
+
+    pub fn insert_local(&mut self, ident: &str, obj: Object) {
+        self.locals.insert(ident.to_string(), obj);
+    }
 }

@@ -1,5 +1,3 @@
-use crate::token::span::Span;
-
 use super::token::Literal;
 
 type P<T> = Box<T>;
