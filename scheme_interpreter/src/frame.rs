@@ -40,6 +40,7 @@ impl StackFrame {
         new.add_item("lambda", FunctionCall::Native(lambda).into());
 
         new.add_item("if", FunctionCall::Native(if_op).into());
+        new.add_item("cond", FunctionCall::Native(cond_op).into());
         new.add_item("not", FunctionCall::Native(not_op).into());
 
         new.add_item("car", FunctionCall::Native(car_op).into());
@@ -104,6 +105,22 @@ pub fn if_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
     } else {
         panic!()
     }
+}
+
+pub fn cond_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
+    let drain = vec.drain(..);
+    for d in drain {
+        match d {
+            Symbol::Tokens(AST::Operation(cond, mut body)) => {
+                let Symbol::Value(lit) = interpreter.interpret(*cond) else { panic!() };
+                if lit.is_truthy() {
+                    return interpreter.interpret(body.drain(..).next().unwrap())
+                }
+            },
+            _ => panic!(),
+        };
+    }
+    panic!()
 }
 
 pub fn not_op(interpreter: &mut Interpreter, mut vec: Vec<Symbol>) -> Symbol {
