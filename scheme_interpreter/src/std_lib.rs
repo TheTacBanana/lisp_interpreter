@@ -1,4 +1,4 @@
-use scheme_core::parser::token::Literal;
+use scheme_core::parser::token::{Literal, Numeric};
 
 use crate::{object::{Object, ObjectPointer}, InterpreterContext, InterpreterResult};
 
@@ -12,19 +12,20 @@ pub fn add(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
 
     let mut values = Vec::new();
     for p in pointers {
-        values.push(interpreter.deref_pointer(&p)?)
+        values.push(interpreter.deref_pointer(p.clone())?)
     }
 
-    let mut drain = values.drain(..);
-    let mut temp = drain.next().unwrap();
+    let drain = values.drain(..);
+    let mut temp = Literal::Numeric(Numeric::Int(0));
     for val in drain {
-        let temp = match (temp, val) {
-            (Object::Value(Literal::Numeric(l)), Object::Value(Literal::Numeric(r))) => Object::Value(Literal::Numeric(*l + *r)),
+        temp = match (temp, val) {
+            (Literal::Numeric(l), Object::Value(Literal::Numeric(r))) => Literal::Numeric(l + *r),
             e => panic!("{e:?}")
         };
     }
 
-    interpreter.push_data(ObjectPointer::Object(*temp));
+    let p = interpreter.allocate_object(None, Object::Value(temp));
+    interpreter.push_data(p);
 
     return Ok(())
 }

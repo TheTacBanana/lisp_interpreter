@@ -15,6 +15,7 @@ fn main() {
     }
 
     let mut interpreter = InterpreterContext::new();
+    interpreter.with_std();
     loop {
         print!("> ");
         std::io::stdout().flush().unwrap();
@@ -47,8 +48,10 @@ fn main() {
         }
 
         for ast in parser_result.ast {
-            interpreter.interpret(ast).unwrap();
-            println!("{:?}", interpreter.pop_data().unwrap());
+            interpreter.interpret(&ast).unwrap();
+            let p = interpreter.pop_data().unwrap();
+            let obj = interpreter.deref_pointer(p).unwrap();
+            println!("{}", obj);
         }
     }
 }

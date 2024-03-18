@@ -30,7 +30,7 @@ pub fn main() -> Result<()> {
     }
 
     for ast in parser_result.ast {
-        interpreter.interpret(ast)?;
+        interpreter.interpret(&ast)?;
     }
 
     Ok(())

@@ -4,9 +4,19 @@ use crate::{InterpreterContext, InterpreterResult};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ObjectPointer {
-    Object(Object),
+    Null,
     Stack { frame_index: usize, name: String },
     Heap { name: String },
+}
+
+impl std::fmt::Display for ObjectPointer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ObjectPointer::Stack { frame_index, name } => write!(f, "{frame_index}:{name}"),
+            ObjectPointer::Heap { name } => write!(f, "{name}"),
+            ObjectPointer::Null => write!(f, "()"),
+        }
+    }
 }
 
 type P<T> = Box<T>;
@@ -15,7 +25,7 @@ type P<T> = Box<T>;
 pub enum Object {
     #[default]
     Bottom,
-    List(P<Object>, P<Object>),
+    List(ObjectPointer, ObjectPointer),
     Value(Literal),
     Func(Func),
 }
@@ -32,7 +42,7 @@ impl std::fmt::Display for Object {
 }
 
 pub type NativeFunc = fn(&mut InterpreterContext, usize) -> InterpreterResult<()>;
-pub type MacroFunc = fn(&mut InterpreterContext, Vec<AST>) -> InterpreterResult<()>;
+pub type MacroFunc = fn(&mut InterpreterContext, Vec<&AST>) -> InterpreterResult<()>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Func {

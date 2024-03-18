@@ -5,7 +5,7 @@ use crate::{object::{Func, Object}, InterpreterContext, ObjectPointer};
 pub struct Frame {
     name: String,
     stack_index: usize,
-    locals: HashMap<String, Object>,
+    locals: HashMap<String, ObjectPointer>,
 }
 
 impl Frame {
@@ -17,15 +17,15 @@ impl Frame {
         }
     }
 
-    pub fn get_local(&self, ident: &str) -> Option<&Object> {
+    pub fn get_local(&self, ident: &str) -> Option<&ObjectPointer> {
         self.locals.get(ident)
     }
 
-    pub fn get_local_mut(&mut self, ident: &str) -> Option<&mut Object> {
+    pub fn get_local_mut(&mut self, ident: &str) -> Option<&mut ObjectPointer> {
         self.locals.get_mut(ident)
     }
 
-    pub fn insert_local(&mut self, ident: &str, obj: Object) {
+    pub fn insert_local(&mut self, ident: &str, obj: ObjectPointer) {
         self.locals.insert(ident.to_string(), obj);
     }
 }

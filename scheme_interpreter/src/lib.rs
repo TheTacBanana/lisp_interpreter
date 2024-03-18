@@ -15,7 +15,8 @@ pub type InterpreterResult<T> = Result<T, InterpreterError>;
 pub struct InterpreterContext {
     frame_stack: Vec<Frame>,
     data_stack: Vec<ObjectPointer>,
-    global_data: HashMap<String, Object>,
+    heap: HashMap<String, Object>,
+    next_alloc_id: usize,
 }
 
 impl InterpreterContext {
@@ -23,100 +24,100 @@ impl InterpreterContext {
         Self {
             data_stack: Vec::new(),
             frame_stack: Vec::new(),
-            global_data: HashMap::new(),
+            heap: HashMap::new(),
+            next_alloc_id: 0,
         }
     }
 
     pub fn with_std(&mut self) {
-        self.global_data.insert(
+        self.heap.insert(
             "+".into(),
             Object::Func(Func::Native("+".into(), std_lib::add)),
         );
     }
 
-    pub fn interpret(&mut self, ast: AST) -> InterpreterResult<()> {
+    pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
         match ast {
-            AST::Operation(op, params) => return self.interpret_operation(*op, params),
+            AST::Operation(op, params) => {
+                return self.interpret_operation(op, params.iter().collect())
+            }
             AST::Identifier(ident) => {
                 self.push_data(self.resolve_identifier(&ident)?);
             }
             AST::Literal(lit) => {
-                self.push_data(ObjectPointer::Object(Object::Value(lit)));
+                let p = self.allocate_object(None, Object::Value(lit.clone()));
+                self.push_data(p);
             }
             AST::List(head, tail) => {
-                self.interpret(*head)?;
-                let ObjectPointer::Object(head) = self.pop_data()? else {
-                    panic!()
-                };
+                todo!()
+                // self.interpret(head)?;
+                // let ObjectPointer::Object(head) = self.pop_data()? else {
+                //     panic!()
+                // };
 
-                if *tail == AST::EmptyList {
-                    self.push_data(ObjectPointer::Object(Object::List(
-                        Box::new(head),
-                        Box::new(Object::Bottom),
-                    )))
-                } else {
-                    self.interpret(*tail)?;
-                    let ObjectPointer::Object(tail) = self.pop_data()? else {
-                        panic!()
-                    };
-                    self.push_data(ObjectPointer::Object(Object::List(
-                        Box::new(head),
-                        Box::new(tail),
-                    )));
-                }
+                // if **tail == AST::EmptyList {
+                //     self.push_data(ObjectPointer::Object(Object::List(
+                //         Box::new(head),
+                //         Box::new(Object::Bottom),
+                //     )))
+                // } else {
+                //     self.interpret(tail)?;
+                //     let ObjectPointer::Object(tail) = self.pop_data()? else {
+                //         panic!()
+                //     };
+                //     self.push_data(ObjectPointer::Object(Object::List(
+                //         Box::new(head),
+                //         Box::new(tail),
+                //     )));
+                // }
             }
-            AST::EmptyList => self.push_data(ObjectPointer::Object(Object::Bottom)),
+            AST::EmptyList => self.push_data(ObjectPointer::Null),
         }
         Ok(())
     }
 
-    pub fn interpret_operation(&mut self, op: AST, mut body: Vec<AST>) -> InterpreterResult<()> {
+    pub fn interpret_operation(&mut self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
         match op {
-            AST::Identifier(i) if &i == "define" => {
+            AST::Identifier(i) if i == "define" => {
                 let mut body = body.drain(..);
-                let (ident, object) = match body.next().unwrap() {
+                 match body.next().unwrap() {
                     // Define a value
                     AST::Identifier(ident) => {
-                        self.interpret(body.next().unwrap())?;
-                        let ObjectPointer::Object(object) = self.pop_data()? else {
-                            return Err(InterpreterError::ExpectedResult);
-                        };
-                        (ident, object)
+                        self.interpret(&body.next().unwrap())?;
+                        let p = self.pop_data()?;
+                        self.allocate_object(Some(&ident), self.deref_pointer(p)?.clone());
                     }
                     // Define a function
-                    AST::Operation(op_name, mut op_params) => {
-                        let AST::Identifier(op_name) = *op_name else {
+                    AST::Operation(op_name, op_params) => {
+                        let AST::Identifier(op_name) = &**op_name else {
                             panic!("Expected Identifier {op_name}")
                         };
 
                         let mut param_names = Vec::new();
-                        for p in op_params.drain(..) {
+                        for p in op_params.iter() {
                             match p {
-                                AST::Identifier(ident) => param_names.push(ident),
+                                AST::Identifier(ident) => param_names.push(ident.clone()),
                                 e => panic!("Expected Identifier received {e}"),
                             }
                         }
 
-                        (
-                            op_name.clone(),
+                        self.allocate_object(
+                            Some(&op_name),
                             Object::Func(Func::Defined(
-                                Some(op_name),
+                                Some(op_name.clone()),
                                 param_names,
-                                body.next().unwrap(),
+                                body.next().unwrap().clone(),
                             )),
-                        )
+                        );
                     }
-
-                    e => return Err(InterpreterError::InvalidOperator(e)),
+                    e => return Err(InterpreterError::InvalidOperator((*e).clone())),
                 };
                 assert!(body.len() == 0);
-
-                self.global_data.insert(ident, object);
             }
             AST::Identifier(ident) => {
                 let pointer = self.resolve_identifier(&ident)?;
 
-                let Object::Func(func) = self.deref_pointer(&pointer)? else {
+                let Object::Func(func) = self.deref_pointer(pointer)? else {
                     return Err(InterpreterError::PointerIsNotFn);
                 };
                 let func_name = func.to_string();
@@ -128,13 +129,13 @@ impl InterpreterContext {
                 match unsafe { func.as_ref().unwrap() } {
                     Func::Native(_, native_func) => {
                         for param in body.drain(..) {
-                            self.interpret(param)?
+                            self.interpret(&param)?
                         }
-                        native_func(self, param_count)
+                        native_func(self, param_count)?
                     }
                     Func::Defined(_, param_names, ast) => {
                         for param in body.drain(..) {
-                            self.interpret(param)?
+                            self.interpret(&param)?
                         }
 
                         let mut params = Vec::new();
@@ -144,23 +145,21 @@ impl InterpreterContext {
                         params.reverse();
 
                         let frame = self.top_frame()?;
-                        param_names.iter().zip(params).for_each(|(name, obj)| {
-                            let ObjectPointer::Object(obj) = obj else {
-                                panic!("{obj:?}")
-                            };
-                            frame.insert_local(&name, obj)
-                        });
+                        param_names
+                            .iter()
+                            .zip(params)
+                            .for_each(|(name, obj)| frame.insert_local(&name, obj));
 
-                        self.interpret(ast.clone())?
+                        self.interpret(ast)?
                     }
                     Func::Macro(_, macro_func) => {
                         let params = body.drain(..).collect::<Vec<_>>();
-                        macro_func(self, params)
+                        macro_func(self, params)?
                     }
                 }
                 self.pop_frame()?;
             }
-            ast => return Err(InterpreterError::InvalidOperator(ast)),
+            ast => return Err(InterpreterError::InvalidOperator(ast.clone())),
         }
 
         Ok(())
@@ -204,7 +203,7 @@ impl InterpreterContext {
             });
         }
 
-        if self.global_data.get(ident).is_some() {
+        if self.heap.get(ident).is_some() {
             return Ok(ObjectPointer::Heap {
                 name: ident.to_string(),
             });
@@ -212,40 +211,48 @@ impl InterpreterContext {
 
         return Err(InterpreterError::InvalidIdentifier);
     }
+    pub fn allocate_object(&mut self, ident: Option<&str>, obj: Object) -> ObjectPointer {
+        let id = ident.map(|s| s.to_string()).unwrap_or_else(|| {
+            let t = self.next_alloc_id.to_string();
+            self.next_alloc_id += 1;
+            t
+        });
+        self.heap.insert(id.clone(), obj);
+        ObjectPointer::Heap { name: id }
+    }
 
-    pub fn deref_pointer<'a>(
-        &'a self,
-        pointer: &'a ObjectPointer,
-    ) -> Result<&'a Object, InterpreterError> {
+    pub fn deref_pointer(&self, pointer: ObjectPointer) -> Result<&Object, InterpreterError> {
         match pointer {
             ObjectPointer::Stack { frame_index, name } => self
                 .frame_stack
-                .get(*frame_index)
+                .get(frame_index)
                 .and_then(|frame| frame.get_local(&name))
+                .map(|p| self.deref_pointer(p.clone()).unwrap()) // TODO: make less bad
                 .ok_or(InterpreterError::NullDeref),
-            ObjectPointer::Heap { name } => self
-                .global_data
-                .get(name)
-                .ok_or(InterpreterError::NullDeref),
-            ObjectPointer::Object(object) => Ok(object),
+            ObjectPointer::Heap { name } => self.heap.get(&name).ok_or(InterpreterError::NullDeref),
+            ObjectPointer::Null => Err(InterpreterError::NullDeref),
         }
     }
 
-    pub fn deref_pointer_mut<'a>(
-        &'a mut self,
-        pointer: &'a mut ObjectPointer,
-    ) -> Result<&'a mut Object, InterpreterError> {
+    pub fn deref_pointer_mut(
+        &mut self,
+        pointer: ObjectPointer,
+    ) -> Result<&mut Object, InterpreterError> {
         match pointer {
-            ObjectPointer::Stack { frame_index, name } => self
-                .frame_stack
-                .get_mut(*frame_index)
-                .and_then(|frame| frame.get_local_mut(&name))
-                .ok_or(InterpreterError::NullDeref),
-            ObjectPointer::Heap { name } => self
-                .global_data
-                .get_mut(name)
-                .ok_or(InterpreterError::NullDeref),
-            ObjectPointer::Object(object) => Ok(object),
+            ObjectPointer::Stack { frame_index, name } => {
+                let pointer = self
+                    .frame_stack
+                    .get_mut(frame_index)
+                    .and_then(|frame| frame.get_local(&name))
+                    .ok_or(InterpreterError::NullDeref)?
+                    .clone();
+
+                self.deref_pointer_mut(pointer) // TODO: make less bad)
+            }
+            ObjectPointer::Heap { name } => {
+                self.heap.get_mut(&name).ok_or(InterpreterError::NullDeref)
+            }
+            ObjectPointer::Null => Err(InterpreterError::NullDeref),
         }
     }
 }
