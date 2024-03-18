@@ -49,9 +49,10 @@ fn main() {
 
         for ast in parser_result.ast {
             interpreter.interpret(&ast).unwrap();
-            let p = interpreter.pop_data().unwrap();
-            let obj = interpreter.deref_pointer(p).unwrap();
-            println!("{}", obj);
+            if let Ok(p) = interpreter.pop_data() {
+                let obj = interpreter.deref_pointer(p).unwrap();
+                println!("{}", obj);
+            }
         }
     }
 }
