@@ -2,7 +2,7 @@ use std::{fs::File, io::Read};
 
 use anyhow::{Ok, Result};
 use scheme_core::{lexer::Lexer, parser::Parser};
-use scheme_interpreter::Interpreter;
+use scheme_interpreter::InterpreterContext;
 
 pub fn main() -> Result<()> {
     let files = std::env::args().skip(1).collect::<Vec<_>>();
@@ -11,7 +11,7 @@ pub fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = InterpreterContext::new();
 
     let mut file = File::open(&files[0])?;
     let mut contents = String::new();
@@ -30,7 +30,7 @@ pub fn main() -> Result<()> {
     }
 
     for ast in parser_result.ast {
-        interpreter.interpret(ast);
+        interpreter.interpret(&ast)?;
     }
 
     Ok(())

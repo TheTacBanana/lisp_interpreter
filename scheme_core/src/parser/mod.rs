@@ -43,9 +43,9 @@ impl Parser {
                         Some(Literal::from_char(ch.chars().nth(2).unwrap()).into())
                     }
                     LexerTokenKind::Identifer(i) => Some(ParserTokenKind::Identifier(i)),
-                    LexerTokenKind::String(s) => {
-                        Some(Literal::from_string(s[1..(s.len() - 1)].to_string()).into())
-                    }
+                    // LexerTokenKind::String(s) => {
+                        // Some(Literal::from_string(s[1..(s.len() - 1)].to_string()).into())
+                    // }
                     LexerTokenKind::Symbol(s) => {
                         Some(ParserTokenKind::Symbol(s.chars().next().unwrap()))
                     }
@@ -103,9 +103,6 @@ impl Parser {
                 Self::parse_block(block)
             }
 
-            // List
-            // TK::Symbol()
-
             // Quote
             TK::Symbol('\'') => Self::parse_quoted(stream),
 
@@ -145,8 +142,8 @@ impl Parser {
 
                 Self::parse_list(block)
             }
-            ParserTokenKind::Identifier(_) => todo!(),
-            ParserTokenKind::Literal(_) => todo!(),
+            ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident)),
+            ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit)),
             _ => panic!("No Item Found"),
         }
     }

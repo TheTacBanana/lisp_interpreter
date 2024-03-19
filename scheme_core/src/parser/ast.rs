@@ -1,5 +1,3 @@
-use crate::token::span::Span;
-
 use super::token::Literal;
 
 type P<T> = Box<T>;
@@ -10,6 +8,8 @@ pub enum AST {
     Identifier(String),
     /// Literal Value
     Literal(Literal),
+    /// String Literal
+    StringLiteral(String),
     /// Operation, List of Parameter Names
     Operation(P<AST>, Vec<AST>),
     /// Head, Tail
@@ -40,6 +40,7 @@ impl std::fmt::Display for AST {
             AST::Operation(ident, params) => write!(f, "{ident} {params:?}"),
             AST::List(head, tail) => write!(f, "{head}:{tail}"),
             AST::EmptyList => write!(f, "()"),
+            AST::StringLiteral(s) => write!(f, "{s}"),
         }
     }
 }
