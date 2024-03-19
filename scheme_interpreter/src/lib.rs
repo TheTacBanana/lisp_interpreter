@@ -54,7 +54,14 @@ impl InterpreterContext {
         alloc_func(self, Func::Macro("if".into(), std_lib::if_macro));
         alloc_func(self, Func::TokenNative("define".into(), std_lib::define));
         alloc_func(self, Func::TokenNative("lambda".into(), std_lib::lambda));
+        alloc_func(self, Func::Native("write".into(), std_lib::write));
         alloc_func(self, Func::Native("+".into(), std_lib::add));
+    }
+
+    pub fn stack_trace(&self) {
+        for s in self.frame_stack.iter() {
+            println!("{s}")
+        }
     }
 
     pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
@@ -169,7 +176,7 @@ impl InterpreterContext {
             return Ok(*ptr);
         }
 
-        return Err(InterpreterError::InvalidIdentifier);
+        return Err(InterpreterError::InvalidIdentifier(ident.to_string()));
     }
 }
 
@@ -177,7 +184,7 @@ impl InterpreterContext {
 pub enum InterpreterError {
     NullDeref,
     PointerIsNotFn,
-    InvalidIdentifier,
+    InvalidIdentifier(String),
     EmptyStack,
     EmptyDataStack,
     InvalidOperator(AST),

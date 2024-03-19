@@ -48,7 +48,11 @@ fn main() {
         }
 
         for ast in parser_result.ast {
-            interpreter.interpret(&ast).unwrap();
+            if let Err(err) = interpreter.interpret(&ast) {
+                interpreter.stack_trace();
+                println!("{err}");
+            }
+
             if let Ok(p) = interpreter.pop_data() {
                 let obj = p.deref(&interpreter).unwrap();
                 println!("{}", obj);

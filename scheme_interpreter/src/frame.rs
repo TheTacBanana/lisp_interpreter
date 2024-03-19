@@ -51,3 +51,14 @@ impl Frame {
         ObjectPointer::Stack(self.stack_index, id)
     }
 }
+
+impl std::fmt::Display for Frame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Frame[{}]: {}", self.stack_index, self.name)?;
+
+        for (ident, i) in self.ident_mapping.iter() {
+            writeln!(f, "{ident}: {}", self.locals.get(*i).unwrap().unwrap())?
+        }
+        Ok(())
+    }
+}

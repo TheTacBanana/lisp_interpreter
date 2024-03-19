@@ -105,6 +105,20 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     Ok(())
 }
 
+pub fn write(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    let mut data = Vec::new();
+    for _ in 0..n {
+        data.push(interpreter.pop_data()?);
+    }
+    data.reverse();
+    for d in data {
+        print!("{} ", d.deref(interpreter)?);
+    }
+    println!();
+
+    Ok(())
+}
+
 pub fn add(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
     let mut objs = Vec::new();
     for _ in 0..n {
