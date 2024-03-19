@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use scheme_core::parser::token::Literal;
 
 use crate::func::Func;
@@ -79,8 +77,8 @@ impl ObjectRef<'_> {
     pub fn clone_to_unallocated(&self) -> UnallocatedObject {
         match self {
             ObjectRef::Value(v) => UnallocatedObject::Value(*v),
-            ObjectRef::Func(f) => UnallocatedObject::Func(f.deref().clone()),
-            ObjectRef::String(s) => UnallocatedObject::String(s.deref().clone()),
+            ObjectRef::Func(f) => UnallocatedObject::Func((*f).clone()),
+            ObjectRef::String(s) => UnallocatedObject::String((*s).clone()),
             ObjectRef::List(x, xs) => UnallocatedObject::List(
                 Box::new((*x).clone_to_unallocated()),
                 Box::new((*xs).clone_to_unallocated()),
