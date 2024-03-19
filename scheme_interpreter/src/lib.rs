@@ -58,6 +58,9 @@ impl InterpreterContext {
 
         alloc_func(self, Func::Native("write".into(), std_lib::write));
         alloc_func(self, Func::Native("+".into(), std_lib::add));
+        alloc_func(self, Func::Native("-".into(), std_lib::sub));
+        alloc_func(self, Func::Native("*".into(), std_lib::mul));
+        alloc_func(self, Func::Native("/".into(), std_lib::div));
     }
 
     pub fn stack_trace(&self) {

@@ -136,10 +136,10 @@ impl Div<Numeric> for Numeric {
 
     fn div(self, rhs: Numeric) -> Self::Output {
         match (self, rhs) {
-            (Numeric::Int(l), Numeric::Int(r)) => Numeric::Int(l / r),
+            (Numeric::Int(l), Numeric::Int(r)) => Numeric::Float(l as f32 / r as f32),
             (Numeric::Int(l), Numeric::Float(r)) => Numeric::Float(l as f32 / r),
-            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l / r as f32),
-            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l / r),
+            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l as f32 / r as f32),
+            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l as f32 / r as f32),
         }
     }
 }
