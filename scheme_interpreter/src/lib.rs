@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, error::Error};
 
+use deref::InterpreterDeref;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
 use scheme_core::parser::ast::AST;
@@ -11,6 +12,7 @@ use crate::func::Func;
 pub mod frame;
 pub mod func;
 pub mod object;
+pub mod deref;
 pub mod std_lib;
 
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
@@ -48,10 +50,10 @@ impl InterpreterContext {
             }
             AST::Identifier(ident) => {
                 let p = self.resolve_identifier(&ident)?;
-                self.push_data(StackObject::Heap(p));
+                self.push_data(StackObject::Ref(p));
             }
             AST::Literal(lit) => self.push_data(StackObject::Value(*lit)),
-            AST::EmptyList => self.push_data(StackObject::Heap(ObjectPointer::Null)),
+            AST::EmptyList => self.push_data(StackObject::Ref(ObjectPointer::Null)),
             _ => todo!(),
         }
         Ok(())
@@ -70,7 +72,7 @@ impl InterpreterContext {
                             &ident,
                             match p {
                                 StackObject::Value(v) => HeapObject::Value(v),
-                                StackObject::Heap(h) => todo!(),
+                                StackObject::Ref(h) => todo!(),
                             },
                         );
                     }
@@ -104,7 +106,8 @@ impl InterpreterContext {
             AST::Identifier(ident) => {
                 let pointer = self.resolve_identifier(&ident)?;
 
-                let ObjectRef::Func(func) = self.deref_pointer(pointer)? else {
+                let ObjectRef::Func(func) = pointer.deref(self)? else {
+                    println!("{pointer:?}");
                     return Err(InterpreterError::PointerIsNotFn);
                 };
 
@@ -207,44 +210,45 @@ impl InterpreterContext {
             .heap
             .iter()
             .enumerate()
-            .find_map(|(i, o)| o.is_some().then(|| i))
+            .find_map(|(i, o)| o.is_none().then(|| i))
             .unwrap_or_else(|| self.heap.len());
         if id >= self.heap.len() {
             let extend = ((self.heap.len())..=id + 1).into_iter().map(|_| None);
             self.heap.extend(extend);
         }
-        self.heap.get_mut(id).as_mut().unwrap().insert(obj);
+        let _ = self.heap.get_mut(id).as_mut().unwrap().insert(obj);
         ObjectPointer::Heap(id)
     }
 
-    pub fn deref_pointer<'a>(
-        &'a self,
-        pointer: ObjectPointer,
-    ) -> Result<ObjectRef<'a>, InterpreterError> {
-        match pointer {
-            ObjectPointer::Null => return Err(InterpreterError::NullDeref),
-            ObjectPointer::Heap(p) => match self.heap.get(p).and_then(|p| p.as_ref()) {
-                Some(HeapObject::Func(f)) => Ok(ObjectRef::Func(f)),
-                Some(HeapObject::String(s)) => Ok(ObjectRef::String(s)),
-                Some(HeapObject::List(h, t)) => Ok(ObjectRef::List(
-                    Box::new(self.deref_pointer(*h)?),
-                    Box::new(self.deref_pointer(*t)?),
-                )),
-                Some(HeapObject::Value(l)) => Ok(ObjectRef::Value(*l)),
-                None => Err(InterpreterError::NullDeref),
-            },
-            ObjectPointer::Stack(f_id, i) => match self
-                .frame_stack
-                .get(f_id)
-                .ok_or(InterpreterError::StackIndexOutOfRange)?
-                .get_local_by_index(i)
-            {
-                Some(StackObject::Value(v)) => Ok(ObjectRef::Value(*v)),
-                Some(StackObject::Heap(p)) => Ok(self.deref_pointer(*p)?),
-                None => Err(InterpreterError::NullDeref),
-            },
-        }
-    }
+    // pub fn deref_pointer<'a>(
+    //     &'a self,
+    //     pointer: ObjectPointer,
+    // ) -> Result<ObjectRef<'a>, InterpreterError> {
+    //     println!("deref {pointer:?}");
+    //     match pointer {
+    //         ObjectPointer::Null => return Err(InterpreterError::NullDeref),
+    //         ObjectPointer::Heap(p) => match self.heap.get(p).and_then(|p| p.as_ref()) {
+    //             Some(HeapObject::Func(f)) => Ok(ObjectRef::Func(f)),
+    //             Some(HeapObject::String(s)) => Ok(ObjectRef::String(s)),
+    //             Some(HeapObject::List(h, t)) => Ok(ObjectRef::List(
+    //                 Box::new(self.deref_pointer(*h)?),
+    //                 Box::new(self.deref_pointer(*t)?),
+    //             )),
+    //             Some(HeapObject::Value(l)) => Ok(ObjectRef::Value(*l)),
+    //             None => Err(InterpreterError::NullDeref),
+    //         },
+    //         ObjectPointer::Stack(f_id, i) => match self
+    //             .frame_stack
+    //             .get(f_id)
+    //             .ok_or(InterpreterError::StackIndexOutOfRange)?
+    //             .get_local_by_index(i)
+    //         {
+    //             Some(StackObject::Value(v)) => Ok(ObjectRef::Value(*v)),
+    //             Some(StackObject::Ref(p)) => Ok(self.deref_pointer(*p)?),
+    //             None => Err(InterpreterError::NullDeref),
+    //         },
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -257,6 +261,7 @@ pub enum InterpreterError {
     InvalidOperator(AST),
     ExpectedResult,
     StackIndexOutOfRange,
+    PointerDoesNotExist,
 }
 
 impl std::fmt::Display for InterpreterError {

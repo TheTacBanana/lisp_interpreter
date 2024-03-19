@@ -1,18 +1,18 @@
 use scheme_core::parser::token::Literal;
 
-use crate::{func::Func, InterpreterContext, InterpreterError, InterpreterResult};
+use crate::{func::Func, InterpreterContext, InterpreterResult};
 
 #[derive(Debug, Clone, Copy)]
 pub enum StackObject {
     Value(Literal),
-    Heap(ObjectPointer),
+    Ref(ObjectPointer),
 }
 
 impl std::fmt::Display for StackObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StackObject::Value(v) => write!(f, "{v}"),
-            StackObject::Heap(p) => write!(f, "{p}"),
+            StackObject::Ref(p) => write!(f, "{p}"),
         }
     }
 }
@@ -69,18 +69,6 @@ impl std::fmt::Display for ObjectRef<'_> {
             ObjectRef::Value(v) => write!(f, "{v}"),
             ObjectRef::Func(fid) => write!(f, "{fid}"),
             ObjectRef::String(s) => write!(f, "{s}"),
-        }
-    }
-}
-
-impl<'a> ObjectRef<'a> {
-    pub fn from(
-        obj: &StackObject,
-        interpreter: &'a InterpreterContext,
-    ) -> InterpreterResult<ObjectRef<'a>> {
-        match obj {
-            StackObject::Value(v) => Ok(ObjectRef::Value(*v)),
-            StackObject::Heap(p) => interpreter.deref_pointer(*p),
         }
     }
 }

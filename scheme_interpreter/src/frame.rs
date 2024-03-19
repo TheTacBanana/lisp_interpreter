@@ -40,13 +40,14 @@ impl Frame {
             .locals
             .iter()
             .enumerate()
-            .find_map(|(i, o)| o.is_some().then(|| i))
+            .find_map(|(i, o)| o.is_none().then(|| i))
             .unwrap_or_else(|| self.locals.len());
         if id >= self.locals.len() {
             let extend = (self.locals.len()..=id + 1).into_iter().map(|_| None);
             self.locals.extend(extend);
         }
         self.ident_mapping.insert(ident.to_string(), id);
+        let _ = self.locals.get_mut(id).as_mut().unwrap().insert(obj);
         ObjectPointer::Stack(self.stack_index, id)
     }
 }

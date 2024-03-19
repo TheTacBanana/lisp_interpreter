@@ -4,7 +4,7 @@ use scheme_core::{
     lexer::{self, Lexer},
     parser::Parser,
 };
-use scheme_interpreter::{object::{ObjectRef, StackObject}, InterpreterContext};
+use scheme_interpreter::{deref::InterpreterDeref, object::{ObjectRef, StackObject}, InterpreterContext};
 
 fn main() {
     let verbose = std::env::args().any(|s| s.to_uppercase() == "V");
@@ -50,10 +50,7 @@ fn main() {
         for ast in parser_result.ast {
             interpreter.interpret(&ast).unwrap();
             if let Ok(p) = interpreter.pop_data() {
-                let obj = match p {
-                    StackObject::Value(v) => ObjectRef::Value(v),
-                    StackObject::Heap(p) => interpreter.deref_pointer(p).unwrap(),
-                };
+                let obj = p.deref(&interpreter).unwrap();
                 println!("{}", obj);
             }
         }
