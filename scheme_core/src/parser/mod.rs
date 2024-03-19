@@ -43,9 +43,9 @@ impl Parser {
                         Some(Literal::from_char(ch.chars().nth(2).unwrap()).into())
                     }
                     LexerTokenKind::Identifer(i) => Some(ParserTokenKind::Identifier(i)),
-                    LexerTokenKind::String(s) => {
-                        Some(Literal::from_string(s[1..(s.len() - 1)].to_string()).into())
-                    }
+                    // LexerTokenKind::String(s) => {
+                        // Some(Literal::from_string(s[1..(s.len() - 1)].to_string()).into())
+                    // }
                     LexerTokenKind::Symbol(s) => {
                         Some(ParserTokenKind::Symbol(s.chars().next().unwrap()))
                     }

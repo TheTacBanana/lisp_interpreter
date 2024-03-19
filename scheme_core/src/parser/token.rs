@@ -19,9 +19,8 @@ pub enum ParserTokenKind {
 
 impl TokenKind for ParserTokenKind {}
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Literal {
-    String(String),
     Character(char),
     Numeric(Numeric),
     Boolean(bool),
@@ -34,10 +33,6 @@ impl Literal {
 
     pub fn from_char(c: char) -> Self {
         Literal::Character(c)
-    }
-
-    pub fn from_string(s: String) -> Self {
-        Literal::String(s)
     }
 
     pub fn from_numeric(lit: NumericLiteral) -> Self {
@@ -61,7 +56,6 @@ impl Into<ParserTokenKind> for Literal {
 impl std::fmt::Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Literal::String(s) => write!(f, "\"{s}\""),
             Literal::Character(c) => write!(f, "'{c}'"),
             Literal::Numeric(n) => write!(f, "{n}"),
             Literal::Boolean(true) => write!(f, "true"),

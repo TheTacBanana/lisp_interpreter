@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{object::{Func, Object}, InterpreterContext, ObjectPointer};
+use crate::{object::StackObject, ObjectPointer};
 
 pub struct Frame {
     name: String,
     stack_index: usize,
-    locals: HashMap<String, ObjectPointer>,
+    ident_mapping: HashMap<String, usize>,
+    locals: Vec<Option<StackObject>>,
 }
 
 impl Frame {
@@ -13,19 +14,39 @@ impl Frame {
         Self {
             name,
             stack_index,
-            locals: HashMap::new(),
+            ident_mapping: HashMap::new(),
+            locals: Vec::new(),
         }
     }
 
-    pub fn get_local(&self, ident: &str) -> Option<&ObjectPointer> {
-        self.locals.get(ident)
+    pub fn get_local_by_index(&self, index: usize) -> Option<&StackObject> {
+        self.locals.get(index).and_then(|p| p.as_ref())
     }
 
-    pub fn get_local_mut(&mut self, ident: &str) -> Option<&mut ObjectPointer> {
-        self.locals.get_mut(ident)
+    pub fn get_local(&self, ident: &str) -> Option<&StackObject> {
+        self.ident_mapping
+            .get(ident)
+            .and_then(|i| self.locals.get(*i).and_then(|c| c.as_ref()))
     }
 
-    pub fn insert_local(&mut self, ident: &str, obj: ObjectPointer) {
-        self.locals.insert(ident.to_string(), obj);
+    pub fn get_local_ptr(&self, ident: &str) -> Option<ObjectPointer> {
+        self.ident_mapping
+            .get(ident)
+            .map(|i| ObjectPointer::Stack(self.stack_index, *i))
+    }
+
+    pub fn insert_local(&mut self, ident: &str, obj: StackObject) -> ObjectPointer {
+        let id = self
+            .locals
+            .iter()
+            .enumerate()
+            .find_map(|(i, o)| o.is_some().then(|| i))
+            .unwrap_or_else(|| self.locals.len());
+        if id >= self.locals.len() {
+            let extend = (self.locals.len()..=id + 1).into_iter().map(|_| None);
+            self.locals.extend(extend);
+        }
+        self.ident_mapping.insert(ident.to_string(), id);
+        ObjectPointer::Stack(self.stack_index, id)
     }
 }
