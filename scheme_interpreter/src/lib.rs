@@ -39,7 +39,8 @@ impl InterpreterContext {
     }
 
     pub fn with_std(&mut self) {
-        HeapObject::Func(Func::Native("+".into(), std_lib::add)).heap_alloc_named("+", self);
+        HeapObject::Func(Func::Macro("if".into(), std_lib::if_macro)).heap_alloc_named("if", self).unwrap();
+        HeapObject::Func(Func::Native("+".into(), std_lib::add)).heap_alloc_named("+", self).unwrap();
     }
 
     pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
@@ -135,7 +136,8 @@ impl InterpreterContext {
                     }
                     Func::Macro(_, macro_func) => {
                         let params = body.drain(..).collect::<Vec<_>>();
-                        macro_func(self, params)?
+                        let ast = macro_func(self, params)?;
+                        self.interpret(&ast)?;
                     }
                 }
                 self.pop_frame()?;

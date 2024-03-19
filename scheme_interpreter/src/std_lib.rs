@@ -1,4 +1,4 @@
-use scheme_core::parser::token::Literal;
+use scheme_core::parser::{ast::AST, token::Literal};
 
 use crate::{
     alloc::InterpreterStackAlloc,
@@ -6,6 +6,26 @@ use crate::{
     object::{ObjectRef, UnallocatedObject},
     InterpreterContext, InterpreterError, InterpreterResult,
 };
+
+pub fn if_macro(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<AST> {
+    assert!(ast.len() == 3);
+
+    let mut drain = ast.drain(..);
+    let cond = drain.next().unwrap();
+
+    interpreter.interpret(&cond)?;
+    let cond = interpreter.pop_data()?;
+    let result = match cond.deref(interpreter)? {
+        ObjectRef::Value(Literal::Boolean(false)) => false,
+        _ => true,
+    };
+
+    if result {
+        Ok(drain.next().unwrap().clone())
+    } else {
+        Ok(drain.skip(1).next().unwrap().clone())
+    }
+}
 
 pub fn add(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
     let mut objs = Vec::new();

@@ -3,7 +3,7 @@ use scheme_core::parser::ast::AST;
 use crate::{InterpreterContext, InterpreterResult};
 
 pub type NativeFunc = fn(&mut InterpreterContext, usize) -> InterpreterResult<()>;
-pub type MacroFunc = fn(&mut InterpreterContext, Vec<&AST>) -> InterpreterResult<()>;
+pub type MacroFunc = fn(&mut InterpreterContext, Vec<&AST>) -> InterpreterResult<AST>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Func {
