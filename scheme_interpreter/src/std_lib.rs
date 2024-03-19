@@ -7,7 +7,7 @@ use crate::{
     InterpreterContext, InterpreterError, InterpreterResult,
 };
 
-pub fn if_macro(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<AST> {
+pub fn if_macro(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<*const AST> {
     assert!(ast.len() == 3);
 
     let mut drain = ast.drain(..);
@@ -21,9 +21,9 @@ pub fn if_macro(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Int
     };
 
     if result {
-        Ok(drain.next().unwrap().clone())
+        Ok(drain.next().unwrap())
     } else {
-        Ok(drain.skip(1).next().unwrap().clone())
+        Ok(drain.skip(1).next().unwrap())
     }
 }
 

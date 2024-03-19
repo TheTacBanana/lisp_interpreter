@@ -137,7 +137,7 @@ impl InterpreterContext {
                     Func::Macro(_, macro_func) => {
                         let params = body.drain(..).collect::<Vec<_>>();
                         let ast = macro_func(self, params)?;
-                        self.interpret(&ast)?;
+                        self.interpret(unsafe { ast.as_ref().unwrap() })?;
                     }
                 }
                 self.pop_frame()?;
