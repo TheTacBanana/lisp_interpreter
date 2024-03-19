@@ -51,17 +51,33 @@ impl InterpreterContext {
             HeapObject::Func(f).heap_alloc_named(&name, int).unwrap();
         }
 
-        alloc_func(self, Func::Macro("if".into(), std_lib::if_macro));
         alloc_func(self, Func::TokenNative("define".into(), std_lib::define));
         alloc_func(self, Func::TokenNative("lambda".into(), std_lib::lambda));
+
+        alloc_func(self, Func::Macro("if".into(), std_lib::if_macro));
+
         alloc_func(self, Func::Native("write".into(), std_lib::write));
         alloc_func(self, Func::Native("+".into(), std_lib::add));
     }
 
     pub fn stack_trace(&self) {
+        println!("Stack Trace:");
         for s in self.frame_stack.iter() {
             println!("{s}")
         }
+    }
+
+    pub fn heap_dump(&self) {
+        println!("Heap Dump:");
+        for (i, o) in self
+            .heap
+            .iter()
+            .enumerate()
+            .filter_map(|(i, o)| o.as_ref().map(|o| (i, o)))
+        {
+            println!("[{i}] {}", o.deref(self).unwrap())
+        }
+        println!()
     }
 
     pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
@@ -132,7 +148,7 @@ impl InterpreterContext {
             }
             self.pop_frame()?;
         } else {
-            return Err(InterpreterError::InvalidOperator(op.clone()))
+            return Err(InterpreterError::InvalidOperator(op.clone()));
         }
 
         Ok(())

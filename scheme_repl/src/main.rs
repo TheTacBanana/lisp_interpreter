@@ -50,6 +50,7 @@ fn main() {
         for ast in parser_result.ast {
             if let Err(err) = interpreter.interpret(&ast) {
                 interpreter.stack_trace();
+                interpreter.heap_dump();
                 println!("{err}");
             }
 
