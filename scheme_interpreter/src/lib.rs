@@ -40,6 +40,7 @@ impl InterpreterContext {
 
     pub fn with_std(&mut self) {
         HeapObject::Func(Func::Macro("if".into(), std_lib::if_macro)).heap_alloc_named("if", self).unwrap();
+        HeapObject::Func(Func::TokenNative("lambda".into(), std_lib::lambda)).heap_alloc_named("lambda", self).unwrap();
         HeapObject::Func(Func::Native("+".into(), std_lib::add)).heap_alloc_named("+", self).unwrap();
     }
 
@@ -134,6 +135,10 @@ impl InterpreterContext {
 
                         self.interpret(ast)?
                     }
+                    Func::TokenNative(_, native_special_func) => {
+                        let params = body.drain(..).collect::<Vec<_>>();
+                        native_special_func(self, params)?;
+                    },
                     Func::Macro(_, macro_func) => {
                         let params = body.drain(..).collect::<Vec<_>>();
                         let ast = macro_func(self, params)?;
