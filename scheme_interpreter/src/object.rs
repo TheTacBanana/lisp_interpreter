@@ -1,6 +1,8 @@
+use std::ops::Deref;
+
 use scheme_core::parser::token::Literal;
 
-use crate::{func::Func, InterpreterContext, InterpreterResult};
+use crate::func::Func;
 
 #[derive(Debug, Clone, Copy)]
 pub enum StackObject {
@@ -71,4 +73,26 @@ impl std::fmt::Display for ObjectRef<'_> {
             ObjectRef::String(s) => write!(f, "{s}"),
         }
     }
+}
+
+impl ObjectRef<'_> {
+    pub fn clone_to_unallocated(&self) -> UnallocatedObject {
+        match self {
+            ObjectRef::Value(v) => UnallocatedObject::Value(*v),
+            ObjectRef::Func(f) => UnallocatedObject::Func(f.deref().clone()),
+            ObjectRef::String(s) => UnallocatedObject::String(s.deref().clone()),
+            ObjectRef::List(x, xs) => UnallocatedObject::List(
+                Box::new((*x).clone_to_unallocated()),
+                Box::new((*xs).clone_to_unallocated()),
+            ),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum UnallocatedObject {
+    Value(Literal),
+    Func(Func),
+    String(String),
+    List(Box<UnallocatedObject>, Box<UnallocatedObject>),
 }

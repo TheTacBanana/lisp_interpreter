@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, error::Error};
 
+use alloc::InterpreterHeapAlloc;
 use deref::InterpreterDeref;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
@@ -9,10 +10,11 @@ use scheme_core::parser::ast::AST;
 
 use crate::func::Func;
 
+pub mod alloc;
+pub mod deref;
 pub mod frame;
 pub mod func;
 pub mod object;
-pub mod deref;
 pub mod std_lib;
 
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
@@ -21,7 +23,7 @@ pub struct InterpreterContext {
     frame_stack: Vec<Frame>,
     data_stack: Vec<StackObject>,
 
-    ident_mapping: HashMap<String, usize>,
+    ident_mapping: HashMap<String, ObjectPointer>,
     heap: Vec<Option<HeapObject>>,
 }
 
@@ -37,10 +39,7 @@ impl InterpreterContext {
     }
 
     pub fn with_std(&mut self) {
-        self.allocate_named_object(
-            "+",
-            HeapObject::Func(Func::Native("+".into(), std_lib::add)),
-        );
+        HeapObject::Func(Func::Native("+".into(), std_lib::add)).heap_alloc_named("+", self);
     }
 
     pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
@@ -68,13 +67,7 @@ impl InterpreterContext {
                     AST::Identifier(ident) => {
                         self.interpret(&body.next().unwrap())?;
                         let p = self.pop_data()?;
-                        self.allocate_named_object(
-                            &ident,
-                            match p {
-                                StackObject::Value(v) => HeapObject::Value(v),
-                                StackObject::Ref(h) => todo!(),
-                            },
-                        );
+                        p.heap_alloc_named(ident, self)?;
                     }
                     // Define a function
                     AST::Operation(op_name, op_params) => {
@@ -90,14 +83,12 @@ impl InterpreterContext {
                             }
                         }
 
-                        self.allocate_named_object(
-                            &op_name,
-                            HeapObject::Func(Func::Defined(
-                                Some(op_name.clone()),
-                                param_names,
-                                body.next().unwrap().clone(),
-                            )),
-                        );
+                        HeapObject::Func(Func::Defined(
+                            Some(op_name.clone()),
+                            param_names,
+                            body.next().unwrap().clone(),
+                        ))
+                        .heap_alloc_named(&op_name, self)?;
                     }
                     e => return Err(InterpreterError::InvalidOperator((*e).clone())),
                 };
@@ -180,74 +171,32 @@ impl InterpreterContext {
     }
 
     pub fn resolve_identifier(&self, ident: &str) -> Result<ObjectPointer, InterpreterError> {
-        if let Some(index) = self
+        if let Some(ptr) = self
             .frame_stack
             .iter()
-            .enumerate()
             .rev()
-            .find_map(|(i, frame)| frame.get_local_ptr(ident))
+            .find_map(|frame| frame.get_local_ptr(ident))
         {
-            return Ok(index);
+            return Ok(ptr);
         }
 
-        if let Some(index) = self.ident_mapping.get(ident) {
-            return Ok(ObjectPointer::Heap(*index));
+        if let Some(ptr) = self.ident_mapping.get(ident) {
+            return Ok(*ptr);
         }
 
         return Err(InterpreterError::InvalidIdentifier);
     }
 
-    pub fn allocate_named_object(&mut self, ident: &str, obj: HeapObject) -> ObjectPointer {
-        let p @ ObjectPointer::Heap(i) = self.allocate_object(obj) else {
-            unreachable!()
-        };
-        self.ident_mapping.insert(ident.to_string(), i);
-        p
-    }
+    // pub fn deref(&mut self, obj: &dyn InterpreterDeref) -> InterpreterResult<ObjectRef<'_>> {
+    //     obj.deref(self)
+    // }
 
-    pub fn allocate_object(&mut self, obj: HeapObject) -> ObjectPointer {
-        let id = self
-            .heap
-            .iter()
-            .enumerate()
-            .find_map(|(i, o)| o.is_none().then(|| i))
-            .unwrap_or_else(|| self.heap.len());
-        if id >= self.heap.len() {
-            let extend = ((self.heap.len())..=id + 1).into_iter().map(|_| None);
-            self.heap.extend(extend);
-        }
-        let _ = self.heap.get_mut(id).as_mut().unwrap().insert(obj);
-        ObjectPointer::Heap(id)
-    }
-
-    // pub fn deref_pointer<'a>(
-    //     &'a self,
-    //     pointer: ObjectPointer,
-    // ) -> Result<ObjectRef<'a>, InterpreterError> {
-    //     println!("deref {pointer:?}");
-    //     match pointer {
-    //         ObjectPointer::Null => return Err(InterpreterError::NullDeref),
-    //         ObjectPointer::Heap(p) => match self.heap.get(p).and_then(|p| p.as_ref()) {
-    //             Some(HeapObject::Func(f)) => Ok(ObjectRef::Func(f)),
-    //             Some(HeapObject::String(s)) => Ok(ObjectRef::String(s)),
-    //             Some(HeapObject::List(h, t)) => Ok(ObjectRef::List(
-    //                 Box::new(self.deref_pointer(*h)?),
-    //                 Box::new(self.deref_pointer(*t)?),
-    //             )),
-    //             Some(HeapObject::Value(l)) => Ok(ObjectRef::Value(*l)),
-    //             None => Err(InterpreterError::NullDeref),
-    //         },
-    //         ObjectPointer::Stack(f_id, i) => match self
-    //             .frame_stack
-    //             .get(f_id)
-    //             .ok_or(InterpreterError::StackIndexOutOfRange)?
-    //             .get_local_by_index(i)
-    //         {
-    //             Some(StackObject::Value(v)) => Ok(ObjectRef::Value(*v)),
-    //             Some(StackObject::Ref(p)) => Ok(self.deref_pointer(*p)?),
-    //             None => Err(InterpreterError::NullDeref),
-    //         },
-    //     }
+    // pub fn alloc_named(
+    //     &mut self,
+    //     ident: &str,
+    //     obj: impl InterpreterHeapAlloc,
+    // ) -> InterpreterResult<ObjectPointer> {
+    //     obj.heap_alloc_named(ident, self)
     // }
 }
 
@@ -262,6 +211,7 @@ pub enum InterpreterError {
     ExpectedResult,
     StackIndexOutOfRange,
     PointerDoesNotExist,
+    FailedOperation,
 }
 
 impl std::fmt::Display for InterpreterError {

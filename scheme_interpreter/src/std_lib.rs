@@ -1,25 +1,39 @@
-use scheme_core::parser::token::{Literal, Numeric};
+use scheme_core::parser::token::Literal;
 
-use crate::{object::StackObject, InterpreterContext, InterpreterResult};
-
-
+use crate::{
+    alloc::InterpreterStackAlloc,
+    deref::InterpreterDeref,
+    object::{ObjectRef, UnallocatedObject},
+    InterpreterContext, InterpreterError, InterpreterResult,
+};
 
 pub fn add(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    let mut stack_objects = Vec::new();
+    let mut objs = Vec::new();
     for _ in 0..n {
-        stack_objects.push(interpreter.pop_data()?);
+        objs.push(interpreter.pop_data()?);
     }
 
-    let drain = stack_objects.drain(..);
-    let mut temp = Literal::Numeric(Numeric::Int(0));
-    for val in drain {
-        temp = match (temp, val) {
-            (Literal::Numeric(l), StackObject::Value(Literal::Numeric(r))) => Literal::Numeric(l + r),
-            e => panic!("{e:?}")
-        };
-    }
+    let drain = objs.drain(..);
+    let out = drain.fold(None, |out, obj| {
+        match (out, obj.deref(interpreter).unwrap()) {
+            (None, v) => Some(v.clone_to_unallocated()),
+            (
+                Some(UnallocatedObject::Value(Literal::Numeric(l))),
+                ObjectRef::Value(Literal::Numeric(r)),
+            ) => Some(UnallocatedObject::Value(Literal::Numeric(l + r))),
+            _ => panic!(),
+        }
+    });
 
-    interpreter.push_data(StackObject::Value(temp));
+    let stack_obj = out
+        .ok_or(InterpreterError::FailedOperation)?
+        .stack_alloc(interpreter)?;
 
-    return Ok(())
+    interpreter.push_data(stack_obj);
+
+    return Ok(());
 }
+
+// pub fn lambda(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+
+// }
