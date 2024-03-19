@@ -39,9 +39,20 @@ impl InterpreterContext {
     }
 
     pub fn with_std(&mut self) {
-        HeapObject::Func(Func::Macro("if".into(), std_lib::if_macro)).heap_alloc_named("if", self).unwrap();
-        HeapObject::Func(Func::TokenNative("lambda".into(), std_lib::lambda)).heap_alloc_named("lambda", self).unwrap();
-        HeapObject::Func(Func::Native("+".into(), std_lib::add)).heap_alloc_named("+", self).unwrap();
+        fn alloc_func(int: &mut InterpreterContext, f: Func) {
+            let name = match &f {
+                Func::TokenNative(s, _) |
+                Func::Macro(s, _) |
+                Func::Defined(Some(s), _, _) |
+                Func::Native(s, _) => s,
+                _ => panic!()
+            }.clone();
+            HeapObject::Func(f).heap_alloc_named(&name, int).unwrap();
+        }
+
+        alloc_func(self, Func::Macro("if".into(), std_lib::if_macro));
+        alloc_func(self, Func::TokenNative("lamda".into(), std_lib::lambda));
+        alloc_func(self, Func::Native("+".into(), std_lib::add));
     }
 
     pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
@@ -193,18 +204,6 @@ impl InterpreterContext {
 
         return Err(InterpreterError::InvalidIdentifier);
     }
-
-    // pub fn deref(&mut self, obj: &dyn InterpreterDeref) -> InterpreterResult<ObjectRef<'_>> {
-    //     obj.deref(self)
-    // }
-
-    // pub fn alloc_named(
-    //     &mut self,
-    //     ident: &str,
-    //     obj: impl InterpreterHeapAlloc,
-    // ) -> InterpreterResult<ObjectPointer> {
-    //     obj.heap_alloc_named(ident, self)
-    // }
 }
 
 #[derive(Debug, Clone, PartialEq)]

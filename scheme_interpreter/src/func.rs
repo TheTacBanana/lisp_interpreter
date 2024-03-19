@@ -27,8 +27,8 @@ impl std::fmt::Display for Func {
             Func::Native(name, n) => write!(f, "{name} {n:?}"),
             Func::TokenNative(name, n) => write!(f, "{name} {n:?}"),
             Func::Macro(name, n) => write!(f, "{name} {n:?}"),
-            Func::Defined(Some(name), args, body) => write!(f, "{name}({args:?})"),
-            Func::Defined(None, args, body) => write!(f, "Lambda({args:?})"),
+            Func::Defined(Some(name), args, _body) => write!(f, "{name}({args:?})"),
+            Func::Defined(None, args, _body) => write!(f, "Lambda({args:?})"),
         }
     }
 }
