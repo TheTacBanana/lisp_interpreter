@@ -41,17 +41,19 @@ impl InterpreterContext {
     pub fn with_std(&mut self) {
         fn alloc_func(int: &mut InterpreterContext, f: Func) {
             let name = match &f {
-                Func::TokenNative(s, _) |
-                Func::Macro(s, _) |
-                Func::Defined(Some(s), _, _) |
-                Func::Native(s, _) => s,
-                _ => panic!()
-            }.clone();
+                Func::TokenNative(s, _)
+                | Func::Macro(s, _)
+                | Func::Defined(Some(s), _, _)
+                | Func::Native(s, _) => s,
+                _ => panic!(),
+            }
+            .clone();
             HeapObject::Func(f).heap_alloc_named(&name, int).unwrap();
         }
 
         alloc_func(self, Func::Macro("if".into(), std_lib::if_macro));
-        alloc_func(self, Func::TokenNative("lamda".into(), std_lib::lambda));
+        alloc_func(self, Func::TokenNative("define".into(), std_lib::define));
+        alloc_func(self, Func::TokenNative("lambda".into(), std_lib::lambda));
         alloc_func(self, Func::Native("+".into(), std_lib::add));
     }
 
@@ -72,93 +74,58 @@ impl InterpreterContext {
     }
 
     pub fn interpret_operation(&mut self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
-        match op {
-            AST::Identifier(i) if i == "define" => {
-                let mut body = body.drain(..);
-                match body.next().unwrap() {
-                    // Define a value
-                    AST::Identifier(ident) => {
-                        self.interpret(&body.next().unwrap())?;
-                        let p = self.pop_data()?;
-                        p.heap_alloc_named(ident, self)?;
+        if let AST::Identifier(ident) = op {
+            let pointer = self.resolve_identifier(&ident)?;
+
+            let ObjectRef::Func(func) = pointer.deref(self)? else {
+                println!("{pointer:?}");
+                return Err(InterpreterError::PointerIsNotFn);
+            };
+
+            let func_name = func.to_string();
+            let func: *const Func = func;
+            let frame = Frame::new(self.frame_stack.len(), func_name);
+            self.frame_stack.push(frame);
+
+            let param_count = body.len();
+            match unsafe { func.as_ref().unwrap() } {
+                Func::Native(_, native_func) => {
+                    for param in body.drain(..) {
+                        self.interpret(&param)?
                     }
-                    // Define a function
-                    AST::Operation(op_name, op_params) => {
-                        let AST::Identifier(op_name) = &**op_name else {
-                            panic!("Expected Identifier {op_name}")
-                        };
-
-                        let mut param_names = Vec::new();
-                        for p in op_params.iter() {
-                            match p {
-                                AST::Identifier(ident) => param_names.push(ident.clone()),
-                                e => panic!("Expected Identifier received {e}"),
-                            }
-                        }
-
-                        HeapObject::Func(Func::Defined(
-                            Some(op_name.clone()),
-                            param_names,
-                            body.next().unwrap().clone(),
-                        ))
-                        .heap_alloc_named(&op_name, self)?;
-                    }
-                    e => return Err(InterpreterError::InvalidOperator((*e).clone())),
-                };
-                assert!(body.len() == 0);
-            }
-            AST::Identifier(ident) => {
-                let pointer = self.resolve_identifier(&ident)?;
-
-                let ObjectRef::Func(func) = pointer.deref(self)? else {
-                    println!("{pointer:?}");
-                    return Err(InterpreterError::PointerIsNotFn);
-                };
-
-                let func_name = func.to_string();
-                let func: *const Func = func;
-                let frame = Frame::new(self.frame_stack.len(), func_name);
-                self.frame_stack.push(frame);
-
-                let param_count = body.len();
-                match unsafe { func.as_ref().unwrap() } {
-                    Func::Native(_, native_func) => {
-                        for param in body.drain(..) {
-                            self.interpret(&param)?
-                        }
-                        native_func(self, param_count)?
-                    }
-                    Func::Defined(_, param_names, ast) => {
-                        for param in body.drain(..) {
-                            self.interpret(&param)?
-                        }
-
-                        let mut params = Vec::new();
-                        for _ in 0..param_count {
-                            params.push(self.pop_data()?);
-                        }
-                        params.reverse();
-
-                        let frame = self.top_frame()?;
-                        param_names.iter().zip(params).for_each(|(name, obj)| {
-                            frame.insert_local(&name, obj);
-                        });
-
-                        self.interpret(ast)?
-                    }
-                    Func::TokenNative(_, native_special_func) => {
-                        let params = body.drain(..).collect::<Vec<_>>();
-                        native_special_func(self, params)?;
-                    },
-                    Func::Macro(_, macro_func) => {
-                        let params = body.drain(..).collect::<Vec<_>>();
-                        let ast = macro_func(self, params)?;
-                        self.interpret(unsafe { ast.as_ref().unwrap() })?;
-                    }
+                    native_func(self, param_count)?
                 }
-                self.pop_frame()?;
+                Func::Defined(_, param_names, ast) => {
+                    for param in body.drain(..) {
+                        self.interpret(&param)?
+                    }
+
+                    let mut params = Vec::new();
+                    for _ in 0..param_count {
+                        params.push(self.pop_data()?);
+                    }
+                    params.reverse();
+
+                    let frame = self.top_frame()?;
+                    param_names.iter().zip(params).for_each(|(name, obj)| {
+                        frame.insert_local(&name, obj);
+                    });
+
+                    self.interpret(ast)?
+                }
+                Func::TokenNative(_, native_special_func) => {
+                    let params = body.drain(..).collect::<Vec<_>>();
+                    native_special_func(self, params)?;
+                }
+                Func::Macro(_, macro_func) => {
+                    let params = body.drain(..).collect::<Vec<_>>();
+                    let ast = macro_func(self, params)?;
+                    self.interpret(unsafe { ast.as_ref().unwrap() })?;
+                }
             }
-            ast => return Err(InterpreterError::InvalidOperator(ast.clone())),
+            self.pop_frame()?;
+        } else {
+            return Err(InterpreterError::InvalidOperator(op.clone()))
         }
 
         Ok(())

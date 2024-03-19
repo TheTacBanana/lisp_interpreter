@@ -1,6 +1,5 @@
 use crate::{
-    deref::InterpreterDeref,
-    object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject},
+    object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject},
     InterpreterContext, InterpreterResult,
 };
 

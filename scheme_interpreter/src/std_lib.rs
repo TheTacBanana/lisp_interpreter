@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use scheme_core::parser::{ast::AST, token::Literal};
 
 use crate::{
@@ -33,6 +31,42 @@ pub fn if_macro(
     }
 }
 
+pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+    let mut ast = ast.drain(..);
+    match ast.next().unwrap() {
+        // Define a value
+        AST::Identifier(ident) => {
+            interpreter.interpret(&ast.next().unwrap())?;
+            let p = interpreter.pop_data()?;
+            p.heap_alloc_named(ident, interpreter)?;
+        }
+        // Define a function
+        AST::Operation(op_name, op_params) => {
+            let AST::Identifier(op_name) = &**op_name else {
+                panic!("Expected Identifier {op_name}")
+            };
+
+            let mut param_names = Vec::new();
+            for p in op_params.iter() {
+                match p {
+                    AST::Identifier(ident) => param_names.push(ident.clone()),
+                    e => panic!("Expected Identifier received {e}"),
+                }
+            }
+
+            HeapObject::Func(Func::Defined(
+                Some(op_name.clone()),
+                param_names,
+                ast.next().unwrap().clone(),
+            ))
+            .heap_alloc_named(&op_name, interpreter)?;
+        }
+        e => return Err(InterpreterError::InvalidOperator((*e).clone())),
+    };
+    assert!(ast.len() == 0);
+    Ok(())
+}
+
 pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     let mut ast = ast.drain(..);
     let param_names = match ast.next().unwrap() {
@@ -61,7 +95,8 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         None,
         param_names,
         ast.next().unwrap().clone(),
-    )).stack_alloc(interpreter)?;
+    ))
+    .stack_alloc(interpreter)?;
 
     interpreter.push_data(obj);
 
