@@ -52,10 +52,14 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             for p in op_params.iter() {
                 match p {
                     AST::Identifier(ident, _) => param_names.push(ident.clone()),
-                    _ => {
-                        return Err(InterpreterError::new(
+                    AST::Literal(_, span) | AST::StringLiteral(_, span) => {
+                        return Err(InterpreterError::spanned(
                             InterpreterErrorKind::InvalidFuncParamNames,
+                            *span,
                         ))
+                    }
+                    _ => {
+                        todo!()
                     }
                 }
             }
@@ -178,11 +182,9 @@ pub fn eq(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<(
     objs.reverse();
 
     let drain = objs.windows(2);
-    let out = drain.fold(Ok(true), |out, objs| {
-        match out {
-            Ok(out) => Ok(out && (objs[0].deref(interpreter)? == objs[1].deref(interpreter)?)),
-            e => e,
-        }
+    let out = drain.fold(Ok(true), |out, objs| match out {
+        Ok(out) => Ok(out && (objs[0].deref(interpreter)? == objs[1].deref(interpreter)?)),
+        e => e,
     });
     interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
 
@@ -195,7 +197,9 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
     match list {
         StackObject::Value(_) => interpreter.push_data(list),
         StackObject::Ref(p) => match p {
-            ObjectPointer::Null => return Err(InterpreterError::new(InterpreterErrorKind::NullDeref)),
+            ObjectPointer::Null => {
+                return Err(InterpreterError::new(InterpreterErrorKind::NullDeref))
+            }
             ObjectPointer::Stack(_, _) => todo!(),
             ObjectPointer::Heap(p) => {
                 match interpreter
@@ -220,9 +224,13 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
     assert!(n == 1);
     let list = interpreter.pop_data()?;
     match list {
-        StackObject::Value(_) => return Err(InterpreterError::new(InterpreterErrorKind::ExpectedList)),
+        StackObject::Value(_) => {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))
+        }
         StackObject::Ref(p) => match p {
-            ObjectPointer::Null => return Err(InterpreterError::new(InterpreterErrorKind::NullDeref)),
+            ObjectPointer::Null => {
+                return Err(InterpreterError::new(InterpreterErrorKind::NullDeref))
+            }
             ObjectPointer::Stack(_, _) => todo!(),
             ObjectPointer::Heap(p) => {
                 match interpreter

@@ -25,13 +25,31 @@ impl Span {
         }
     }
 
+    pub const fn from_to_on(from : usize, to: usize, on: usize) -> Self {
+        Self {
+            start: LineCol { line: on, col: from },
+            end: LineCol { line: on, col: to },
+        }
+    }
+
     /// Extends the span with a sequence of characters
     pub fn extend_with(&mut self, seq: String) {
         self.end.extend_with(seq);
     }
+
+    pub fn lines(&self) -> impl Iterator<Item = usize> {
+        self.start.line..=self.end.line
+    }
+
+    pub fn max_span(&self, other: Span) -> Span {
+        Span {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LineCol {
     pub line: usize,
     pub col: usize,

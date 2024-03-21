@@ -6,7 +6,7 @@ use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
-use scheme_core::{parser::ast::AST, token::span::Span};
+use scheme_core::{error::{ErrorWriter, FormattedError}, parser::ast::AST, token::span::Span};
 
 use crate::func::Func;
 
@@ -270,9 +270,46 @@ pub enum InterpreterErrorKind {
     InvalidFuncParamNames,
 }
 
+impl FormattedError for InterpreterError {
+    fn fmt_err(&self, ew: &ErrorWriter) -> std::fmt::Result {
+        println!("{}", self.kind);
+        if let Some(total_span) = self.span {
+            for span in ew.span_to_lines(total_span).unwrap() {
+                println!("{}", ew.get_line(span.start.line).unwrap());
+                println!("{}", ErrorWriter::underline_span(span));
+            }
+        } else {
+
+        }
+        Ok(())
+    }
+}
+
 impl std::fmt::Display for InterpreterErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        let temp;
+        let s = match self {
+            InterpreterErrorKind::NullDeref => "Null Pointer Dereferenced",
+            InterpreterErrorKind::PointerIsNotFn => "Value is not a function",
+            InterpreterErrorKind::InvalidIdentifier(s) => {
+                temp = format!("{s} is not a known identifier");
+                &temp
+            },
+            InterpreterErrorKind::EmptyStack => "Stack is empty, cannot pop Stack frame",
+            InterpreterErrorKind::EmptyDataStack => "Data Stack is empty, cannot pop Data Stack",
+            InterpreterErrorKind::InvalidOperator(op) => {
+                temp = format!("{op} is not an operator");
+                &temp
+            },
+            InterpreterErrorKind::ExpectedResult => "Expected Result?", //TODO:
+            InterpreterErrorKind::StackIndexOutOfRange => "Pointer exceeds limit of stack",
+            InterpreterErrorKind::PointerDoesNotExist => "Pointer does not.", //TODO:
+            InterpreterErrorKind::FailedOperation => "Operation arguments not valid",
+            InterpreterErrorKind::CannotAllocateNull => "Cannot allocate whatever the fuck this is to the heap",
+            InterpreterErrorKind::ExpectedList => "Operation expected a List",
+            InterpreterErrorKind::InvalidFuncParamNames => "Invalid Param names",
+        };
+        write!(f, "{s}")
     }
 }
 

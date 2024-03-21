@@ -1,36 +1,82 @@
-use std::error::Error;
+use std::{error::Error, str::Lines, sync::atomic::AtomicPtr};
 
-use crate::token::{span::Span, ErrorToken, Token, TokenKind};
+use crate::{lexer::token::LexerTokenError, token::{span::Span, ErrorToken, Token, TokenKind}};
 
-
-pub struct ErrorWriter<E: Error> {
-    pub errors: Vec<IndividualError<E>>
+pub struct ErrorWriter {
+    pub lines: Vec<String>,
 }
 
-impl<E: Error> ErrorWriter<E> {
-    pub fn write(&self) {
-        for e in self.errors.iter() {
-            println!("{}", e);
+impl ErrorWriter {
+    pub fn from_string(string: &str) -> Self {
+        Self {
+            lines: string
+                .to_string()
+                .lines()
+                .map(|x| x.into())
+                .collect::<Vec<_>>(),
         }
     }
-}
 
-pub struct IndividualError<E: Error> {
-    pub whole_line: String,
-    pub span: Span,
-    pub error: E,
-}
+    pub fn report_errors(&self, errors : Vec<impl FormattedError>) -> Result<(), ()>{
+        if errors.is_empty() {
+            return Ok(())
+        }
+        for e in errors {
+            e.fmt_err(self).unwrap();
+        }
 
-impl<E: Error> std::fmt::Display for IndividualError<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error: {}\n", self.error)?;
-        write!(f, "\n")?;
-        write!(f, "{}\n", self.whole_line)?;
-        let padding = 0..self.span.start.col;
-        let width = self.span.start.col..=self.span.end.col;
+        Err(())
+    }
+
+    pub fn get_line(&self, l: usize) -> Option<&String> {
+        self.lines.get(l)
+    }
+
+    pub fn get_line_length(&self, l: usize) -> Option<usize> {
+        self.lines.get(l).map(|l| l.len())
+    }
+
+    pub fn span_to_lines(&self, span: Span) -> Option<Vec<Span>> {
+        let mut lines = span.lines().collect::<Vec<_>>();
+
+        if lines.len() == 1 {
+            Some(vec![span])
+        } else {
+            let mut lines = lines.drain(..);
+            let mut spans = Vec::new();
+
+            let first = lines.next().unwrap();
+            spans.push(Span::from_to_on(
+                span.start.col,
+                self.get_line_length(first)?,
+                first,
+            ));
+
+            for _ in 0..(lines.len() - 1) {
+                let line = lines.next().unwrap();
+                spans.push(Span::from_to_on(0, self.get_line_length(line)?, line))
+            }
+
+            let last = lines.next().unwrap();
+            spans.push(Span::from_to_on(
+                0,
+                span.end.col,
+                last,
+            ));
+
+            Some(spans)
+        }
+    }
+
+    pub fn underline_span(span: Span) -> String {
+        let padding = 0..span.start.col;
+        let width = span.start.col..=span.end.col;
         let padding = padding.fold(String::new(), |l, _r| l + " ");
         let out = width.fold(padding, |l, _r| l + "^");
-        write!(f, "{}\n", out)?;
-        Ok(())
+        out
     }
+}
+
+pub trait FormattedError {
+    fn fmt_err(&self, f: &ErrorWriter) -> std::fmt::Result;
 }

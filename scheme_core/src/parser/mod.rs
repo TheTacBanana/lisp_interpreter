@@ -1,7 +1,7 @@
 use core::panic;
 
 use crate::{
-    error::{ErrorWriter, IndividualError},
+    error::{ErrorWriter},
     lexer::token::{LexerToken, LexerTokenKind},
     token::{
         span::Span,
@@ -116,6 +116,7 @@ impl Parser {
     fn parse_block(
         mut stream: TokenStream<Token<ParserTokenKind>>,
     ) -> Result<AST, (Span, ParseTokenError)> {
+        let total_span = stream.total_span().unwrap(); // TODO:
         let item = Self::parse_item(&mut stream)?;
 
         if stream.is_empty() {
@@ -127,7 +128,7 @@ impl Parser {
             let item = Self::parse_item(&mut stream)?;
             items.push(item);
         }
-        Ok(AST::Operation(Box::new(item), items))
+        Ok(AST::Operation(Box::new(item), items, total_span))
     }
 
     fn parse_quoted(
@@ -159,7 +160,11 @@ impl Parser {
             let item = Self::parse_item(&mut stream)?;
             items.push(item);
         }
-        Ok(AST::list_from_vec(items))
+        if items.is_empty() {
+            Ok(AST::EmptyList(Span::zero())) //TODO: Distinctly incorrect
+        } else {
+            Ok(AST::list_from_vec(items.into()))
+        }
     }
 }
 
@@ -169,28 +174,28 @@ pub struct ParseResult {
     pub errors: Vec<(Span, ParseTokenError)>,
 }
 
-impl ParseResult {
-    pub fn error_writer(&self, file: &String) -> Option<ErrorWriter<ParseTokenError>> {
-        if self.errors.len() == 0 {
-            return None;
-        }
+// impl ParseResult {
+//     pub fn error_writer(&self, file: &String) -> Option<ErrorWriter<ParseTokenError>> {
+//         if self.errors.len() == 0 {
+//             return None;
+//         }
 
-        let lines = file.lines().collect::<Vec<_>>();
+//         let lines = file.lines().collect::<Vec<_>>();
 
-        let mut formatted_errors = Vec::new();
-        for e in self.errors.iter() {
-            let span = e.0;
-            let whole_line = lines.get(span.start.line).unwrap().to_string();
+//         let mut formatted_errors = Vec::new();
+//         for e in self.errors.iter() {
+//             let span = e.0;
+//             let whole_line = lines.get(span.start.line).unwrap().to_string();
 
-            formatted_errors.push(IndividualError {
-                whole_line,
-                span,
-                error: e.1,
-            })
-        }
+//             formatted_errors.push(IndividualError {
+//                 whole_line,
+//                 span,
+//                 error: e.1,
+//             })
+//         }
 
-        Some(ErrorWriter {
-            errors: formatted_errors,
-        })
-    }
-}
+//         Some(ErrorWriter {
+//             errors: formatted_errors,
+//         })
+//     }
+// }

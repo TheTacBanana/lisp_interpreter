@@ -18,16 +18,16 @@ pub fn main() -> Result<()> {
     file.read_to_string(&mut contents)?;
 
     let lexer_result = Lexer::from_string(contents.clone()).lex();
-    if let Some(writer) = lexer_result.error_writer() {
-        writer.write();
-        return Ok(());
-    }
+    // if let Some(writer) = lexer_result.error_writer() {
+    //     writer.write();
+    //     return Ok(());
+    // }
 
     let parser_result = Parser::new(lexer_result.tokens).parse();
-    if let Some(writer) = parser_result.error_writer(&contents) {
-        writer.write();
-        return Ok(());
-    }
+    // if let Some(writer) = parser_result.error_writer(&contents) {
+    //     writer.write();
+    //     return Ok(());
+    // }
 
     for ast in parser_result.ast {
         interpreter.interpret(&ast)?;

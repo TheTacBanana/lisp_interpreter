@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::parser::token::ParserTokenKind;
 
-use super::{Token, TokenKind};
+use super::{span::Span, Token, TokenKind};
 
 pub type TokenStream<T> = VecDeque<T>;
 
@@ -22,6 +22,8 @@ pub trait TokenStreamExt<T>: Sized {
 
     /// Take n tokens up till the index
     fn take_n(&mut self, n: usize) -> Option<Self>;
+
+    fn total_span(&self) -> Option<Span>;
 }
 
 impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
@@ -71,6 +73,10 @@ impl TokenStreamExt<ParserTokenKind> for TokenStream<Token<ParserTokenKind>> {
             return None;
         }
         Some(self.drain(0..n).collect())
+    }
+
+    fn total_span(&self) -> Option<Span> {
+        self.iter().map(|t| t.span).reduce(|l, r| l.max_span(r))
     }
 }
 
