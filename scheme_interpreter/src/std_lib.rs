@@ -4,7 +4,7 @@ use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},
     deref::InterpreterDeref,
     func::Func,
-    object::{HeapObject, ObjectRef, UnallocatedObject},
+    object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject},
     InterpreterContext, InterpreterError, InterpreterResult,
 };
 
@@ -155,3 +155,51 @@ bin_op!(add, l, r, l + r);
 bin_op!(sub, l, r, l - r);
 bin_op!(mul, l, r, l * r);
 bin_op!(div, l, r, l / r);
+
+pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    assert!(n == 1);
+    let list = interpreter.pop_data()?;
+    match list {
+        StackObject::Value(_) => interpreter.push_data(list),
+        StackObject::Ref(p) => {
+            match p {
+                ObjectPointer::Null => return Err(InterpreterError::NullDeref),
+                ObjectPointer::Stack(_, _) => todo!(),
+                ObjectPointer::Heap(p) => {
+                    match interpreter.heap.get(p).and_then(|x| x.as_ref()).ok_or(InterpreterError::NullDeref)? {
+                        HeapObject::List(h, _) => {
+                            let p = h.stack_alloc(interpreter)?;
+                            interpreter.push_data(p);
+                        },
+                        _ => todo!()
+                    }
+                },
+            }
+        },
+    }
+    Ok(())
+}
+
+pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    assert!(n == 1);
+    let list = interpreter.pop_data()?;
+    match list {
+        StackObject::Value(_) => return Err(InterpreterError::ExpectedList),
+        StackObject::Ref(p) => {
+            match p {
+                ObjectPointer::Null => return Err(InterpreterError::NullDeref),
+                ObjectPointer::Stack(_, _) => todo!(),
+                ObjectPointer::Heap(p) => {
+                    match interpreter.heap.get(p).and_then(|x| x.as_ref()).ok_or(InterpreterError::NullDeref)? {
+                        HeapObject::List(_, t) => {
+                            let p = t.stack_alloc(interpreter)?;
+                            interpreter.push_data(p);
+                        },
+                        _ => todo!()
+                    }
+                },
+            }
+        },
+    }
+    Ok(())
+}

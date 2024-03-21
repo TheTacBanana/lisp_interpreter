@@ -56,6 +56,9 @@ impl InterpreterContext {
 
         alloc_func(self, Func::Macro("if".into(), std_lib::if_macro));
 
+        alloc_func(self, Func::Native("car".into(), std_lib::car));
+        alloc_func(self, Func::Native("cdr".into(), std_lib::cdr));
+
         alloc_func(self, Func::Native("write".into(), std_lib::write));
         alloc_func(self, Func::Native("+".into(), std_lib::add));
         alloc_func(self, Func::Native("-".into(), std_lib::sub));
@@ -227,6 +230,7 @@ pub enum InterpreterError {
     PointerDoesNotExist,
     FailedOperation,
     CannotAllocateNull,
+    ExpectedList,
 }
 
 impl std::fmt::Display for InterpreterError {
