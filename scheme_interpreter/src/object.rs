@@ -56,6 +56,7 @@ impl std::fmt::Display for HeapObject {
 
 #[derive(Debug)]
 pub enum ObjectRef<'a> {
+    Null,
     Value(Literal),
     Func(&'a Func),
     String(&'a String),
@@ -69,6 +70,7 @@ impl std::fmt::Display for ObjectRef<'_> {
             ObjectRef::Value(v) => write!(f, "{v}"),
             ObjectRef::Func(fid) => write!(f, "{fid}"),
             ObjectRef::String(s) => write!(f, "{s}"),
+            ObjectRef::Null => write!(f, "()"),
         }
     }
 }
@@ -83,6 +85,7 @@ impl ObjectRef<'_> {
                 Box::new((*x).clone_to_unallocated()),
                 Box::new((*xs).clone_to_unallocated()),
             ),
+            ObjectRef::Null => UnallocatedObject::Null,
         }
     }
 }
@@ -93,4 +96,5 @@ pub enum UnallocatedObject {
     Func(Func),
     String(String),
     List(Box<UnallocatedObject>, Box<UnallocatedObject>),
+    Null,
 }

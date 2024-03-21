@@ -43,9 +43,9 @@ impl Parser {
                         Some(Literal::from_char(ch.chars().nth(2).unwrap()).into())
                     }
                     LexerTokenKind::Identifer(i) => Some(ParserTokenKind::Identifier(i)),
-                    // LexerTokenKind::String(s) => {
-                        // Some(Literal::from_string(s[1..(s.len() - 1)].to_string()).into())
-                    // }
+                    LexerTokenKind::String(s) => {
+                        Some(ParserTokenKind::String(s[1..(s.len() - 1)].to_string()).into())
+                    }
                     LexerTokenKind::Symbol(s) => {
                         Some(ParserTokenKind::Symbol(s.chars().next().unwrap()))
                     }
@@ -65,7 +65,7 @@ impl Parser {
         let mut errors = Vec::new();
         let mut items = Vec::new();
         match self.tokens.peek_front().unwrap() {
-            ParserTokenKind::Symbol(_) | ParserTokenKind::Literal(_) => {
+            ParserTokenKind::Symbol(_) | ParserTokenKind::Literal(_) |  ParserTokenKind::String(_) => {
                 while !self.tokens.is_empty() {
                     match Self::parse_item(&mut self.tokens) {
                         Ok(item) => items.push(item),
@@ -90,6 +90,7 @@ impl Parser {
         match kind {
             TK::Literal(lit) => Ok(AST::Literal(lit)),
             TK::Identifier(ident) => Ok(AST::Identifier(ident)),
+            TK::String(s) => Ok(AST::StringLiteral(s)),
 
             // New block
             b @ TK::Symbol('(') => {

@@ -2,10 +2,10 @@
 
 use std::{collections::HashMap, error::Error};
 
-use alloc::InterpreterHeapAlloc;
+use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
 use frame::Frame;
-use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
+use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
 use scheme_core::parser::ast::AST;
 
 use crate::func::Func;
@@ -78,7 +78,11 @@ impl InterpreterContext {
             .enumerate()
             .filter_map(|(i, o)| o.as_ref().map(|o| (i, o)))
         {
-            println!("[{i}] {}", o.deref(self).unwrap())
+            if let Ok(item) = o.deref(self) {
+                println!("[{i}] {}", item)
+            } else {
+                println!("[{i}] Deref Failed {o:?}")
+            }
         }
         println!()
     }
@@ -94,7 +98,18 @@ impl InterpreterContext {
             }
             AST::Literal(lit) => self.push_data(StackObject::Value(*lit)),
             AST::EmptyList => self.push_data(StackObject::Ref(ObjectPointer::Null)),
-            _ => todo!(),
+            AST::StringLiteral(s) => {
+                let p = UnallocatedObject::String(s.clone()).stack_alloc(self)?;
+                self.push_data(p)
+            }
+            AST::List(head, tail) => {
+                self.interpret(head)?;
+                let head = self.pop_data()?.heap_alloc(self)?;
+                self.interpret(tail)?;
+                let tail = self.pop_data()?.heap_alloc(self)?;
+                let pointer = HeapObject::List(head, tail).stack_alloc(self)?;
+                self.push_data(pointer)
+            },
         }
         Ok(())
     }
@@ -211,6 +226,7 @@ pub enum InterpreterError {
     StackIndexOutOfRange,
     PointerDoesNotExist,
     FailedOperation,
+    CannotAllocateNull,
 }
 
 impl std::fmt::Display for InterpreterError {

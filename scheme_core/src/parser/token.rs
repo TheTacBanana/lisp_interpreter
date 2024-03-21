@@ -15,6 +15,7 @@ pub enum ParserTokenKind {
     Symbol(char),
     Identifier(String),
     Literal(Literal),
+    String(String),
 }
 
 impl TokenKind for ParserTokenKind {}
