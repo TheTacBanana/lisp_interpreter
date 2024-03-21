@@ -1,3 +1,5 @@
+use crate::token::span::Span;
+
 use super::token::Literal;
 
 type P<T> = Box<T>;
@@ -5,11 +7,11 @@ type P<T> = Box<T>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum AST {
     /// Identifer
-    Identifier(String),
+    Identifier(String, Span),
     /// Literal Value
-    Literal(Literal),
+    Literal(Literal, Span),
     /// String Literal
-    StringLiteral(String),
+    StringLiteral(String, Span),
     /// Operation, List of Parameter Names
     Operation(P<AST>, Vec<AST>),
     /// Head, Tail
@@ -35,12 +37,12 @@ impl AST {
 impl std::fmt::Display for AST {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AST::Identifier(ident) => write!(f, "{ident}"),
-            AST::Literal(lit) => write!(f, "{lit}"),
+            AST::Identifier(ident, _) => write!(f, "{ident}"),
+            AST::Literal(lit, _) => write!(f, "{lit}"),
             AST::Operation(ident, params) => write!(f, "{ident} {params:?}"),
             AST::List(head, tail) => write!(f, "{head}:{tail}"),
             AST::EmptyList => write!(f, "()"),
-            AST::StringLiteral(s) => write!(f, "{s}"),
+            AST::StringLiteral(s, _) => write!(f, "{s}"),
         }
     }
 }

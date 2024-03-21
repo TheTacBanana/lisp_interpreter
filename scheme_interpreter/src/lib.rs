@@ -6,7 +6,7 @@ use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
-use scheme_core::parser::ast::AST;
+use scheme_core::{parser::ast::AST, token::span::Span};
 
 use crate::func::Func;
 
@@ -97,13 +97,13 @@ impl InterpreterContext {
             AST::Operation(op, params) => {
                 return self.interpret_operation(op, params.iter().collect())
             }
-            AST::Identifier(ident) => {
-                let p = self.resolve_identifier(&ident)?;
+            AST::Identifier(ident, span) => {
+                let p = self.resolve_identifier(&ident, *span)?;
                 self.push_data(StackObject::Ref(p));
             }
-            AST::Literal(lit) => self.push_data(StackObject::Value(*lit)),
+            AST::Literal(lit, _) => self.push_data(StackObject::Value(*lit)),
             AST::EmptyList => self.push_data(StackObject::Ref(ObjectPointer::Null)),
-            AST::StringLiteral(s) => {
+            AST::StringLiteral(s, _) => {
                 let p = UnallocatedObject::String(s.clone()).stack_alloc(self)?;
                 self.push_data(p)
             }
@@ -114,18 +114,20 @@ impl InterpreterContext {
                 let tail = self.pop_data()?.heap_alloc(self)?;
                 let pointer = HeapObject::List(head, tail).stack_alloc(self)?;
                 self.push_data(pointer)
-            },
+            }
         }
         Ok(())
     }
 
     pub fn interpret_operation(&mut self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
-        if let AST::Identifier(ident) = op {
-            let pointer = self.resolve_identifier(&ident)?;
+        if let AST::Identifier(ident, span) = op {
+            let pointer = self.resolve_identifier(&ident, *span)?;
 
             let ObjectRef::Func(func) = pointer.deref(self)? else {
-                println!("{pointer:?}");
-                return Err(InterpreterError::PointerIsNotFn);
+                return Err(InterpreterError::spanned(
+                    InterpreterErrorKind::PointerIsNotFn,
+                    *span,
+                ));
             };
 
             let func_name = func.to_string();
@@ -171,7 +173,9 @@ impl InterpreterContext {
             }
             self.pop_frame()?;
         } else {
-            return Err(InterpreterError::InvalidOperator(op.clone()));
+            return Err(InterpreterError::new(
+                InterpreterErrorKind::InvalidOperator(op.clone()),
+            ));
         }
 
         Ok(())
@@ -179,7 +183,7 @@ impl InterpreterContext {
 
     pub fn pop_frame(&mut self) -> InterpreterResult<()> {
         if self.frame_stack.pop().is_none() {
-            Err(InterpreterError::EmptyStack)
+            Err(InterpreterError::new(InterpreterErrorKind::EmptyStack))
         } else {
             Ok(())
         }
@@ -188,7 +192,7 @@ impl InterpreterContext {
     pub fn top_frame(&mut self) -> InterpreterResult<&mut Frame> {
         self.frame_stack
             .last_mut()
-            .ok_or(InterpreterError::EmptyStack)
+            .ok_or(InterpreterError::new(InterpreterErrorKind::EmptyStack))
     }
 
     pub fn push_data(&mut self, obj: StackObject) {
@@ -198,10 +202,10 @@ impl InterpreterContext {
     pub fn pop_data(&mut self) -> InterpreterResult<StackObject> {
         self.data_stack
             .pop()
-            .ok_or(InterpreterError::EmptyDataStack)
+            .ok_or(InterpreterError::new(InterpreterErrorKind::EmptyDataStack))
     }
 
-    pub fn resolve_identifier(&self, ident: &str) -> Result<ObjectPointer, InterpreterError> {
+    pub fn resolve_identifier(&self, ident: &str, span: Span) -> InterpreterResult<ObjectPointer> {
         if let Some(ptr) = self
             .frame_stack
             .iter()
@@ -215,12 +219,42 @@ impl InterpreterContext {
             return Ok(*ptr);
         }
 
-        return Err(InterpreterError::InvalidIdentifier(ident.to_string()));
+        return Err(InterpreterError::spanned(
+            InterpreterErrorKind::InvalidIdentifier(ident.to_string()),
+            span,
+        ));
+    }
+}
+
+#[derive(Debug)]
+pub struct InterpreterError {
+    span: Option<Span>,
+    kind: InterpreterErrorKind,
+}
+
+impl std::fmt::Display for InterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} {}", self.span, self.kind)
+    }
+}
+
+impl Error for InterpreterError {}
+
+impl InterpreterError {
+    pub fn new(kind: InterpreterErrorKind) -> Self {
+        Self { span: None, kind }
+    }
+
+    pub fn spanned(kind: InterpreterErrorKind, span: Span) -> Self {
+        Self {
+            span: Some(span),
+            kind,
+        }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum InterpreterError {
+pub enum InterpreterErrorKind {
     NullDeref,
     PointerIsNotFn,
     InvalidIdentifier(String),
@@ -233,12 +267,13 @@ pub enum InterpreterError {
     FailedOperation,
     CannotAllocateNull,
     ExpectedList,
+    InvalidFuncParamNames,
 }
 
-impl std::fmt::Display for InterpreterError {
+impl std::fmt::Display for InterpreterErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self:?}")
     }
 }
 
-impl Error for InterpreterError {}
+impl Error for InterpreterErrorKind {}

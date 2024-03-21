@@ -5,7 +5,7 @@ use crate::{
     deref::InterpreterDeref,
     func::Func,
     object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject},
-    InterpreterContext, InterpreterError, InterpreterResult,
+    InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
 pub fn if_macro(
@@ -35,22 +35,28 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     let mut ast = ast.drain(..);
     match ast.next().unwrap() {
         // Define a value
-        AST::Identifier(ident) => {
+        AST::Identifier(ident, _) => {
             interpreter.interpret(&ast.next().unwrap())?;
             let p = interpreter.pop_data()?;
             p.heap_alloc_named(ident, interpreter)?;
         }
         // Define a function
         AST::Operation(op_name, op_params) => {
-            let AST::Identifier(op_name) = &**op_name else {
-                panic!("Expected Identifier {op_name}")
+            let AST::Identifier(op_name, _) = &**op_name else {
+                return Err(InterpreterError::new(
+                    InterpreterErrorKind::InvalidOperator((**op_name).clone()),
+                ));
             };
 
             let mut param_names = Vec::new();
             for p in op_params.iter() {
                 match p {
-                    AST::Identifier(ident) => param_names.push(ident.clone()),
-                    e => panic!("Expected Identifier received {e}"),
+                    AST::Identifier(ident, _) => param_names.push(ident.clone()),
+                    _ => {
+                        return Err(InterpreterError::new(
+                            InterpreterErrorKind::InvalidFuncParamNames,
+                        ))
+                    }
                 }
             }
 
@@ -61,7 +67,11 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             ))
             .heap_alloc_named(&op_name, interpreter)?;
         }
-        e => return Err(InterpreterError::InvalidOperator((*e).clone())),
+        e => {
+            return Err(InterpreterError::new(
+                InterpreterErrorKind::InvalidOperator((*e).clone()),
+            ))
+        }
     };
     assert!(ast.len() == 0);
     Ok(())
@@ -70,25 +80,29 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
 pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     let mut ast = ast.drain(..);
     let param_names = match ast.next().unwrap() {
-        AST::Identifier(ident) => {
+        AST::Identifier(ident, _) => {
             vec![ident.clone()]
         }
         AST::Operation(op_name, op_params) => {
-            let AST::Identifier(op_name) = &**op_name else {
+            let AST::Identifier(op_name, _) = &**op_name else {
                 panic!("Expected Identifier {op_name}")
             };
 
             let mut param_names = vec![op_name.clone()];
             for p in op_params.iter() {
                 match p {
-                    AST::Identifier(ident) => param_names.push(ident.clone()),
+                    AST::Identifier(ident, _) => param_names.push(ident.clone()),
                     e => panic!("Expected Identifier received {e}"),
                 }
             }
 
             param_names
         }
-        e => return Err(InterpreterError::InvalidOperator((*e).clone())),
+        e => {
+            return Err(InterpreterError::new(
+                InterpreterErrorKind::InvalidOperator((*e).clone()),
+            ))
+        }
     };
 
     let obj = UnallocatedObject::Func(Func::Defined(
@@ -141,7 +155,7 @@ macro_rules! bin_op {
             });
 
             let stack_obj = out
-                .ok_or(InterpreterError::FailedOperation)?
+                .ok_or(InterpreterError::new(InterpreterErrorKind::FailedOperation))?
                 .stack_alloc(interpreter)?;
 
             interpreter.push_data(stack_obj);
@@ -164,8 +178,13 @@ pub fn eq(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<(
     objs.reverse();
 
     let drain = objs.windows(2);
-    let out = drain.fold(true, |out, objs| out && (objs[0].deref(interpreter) == objs[1].deref(interpreter)));
-    interpreter.push_data(StackObject::Value(Literal::Boolean(out)));
+    let out = drain.fold(Ok(true), |out, objs| {
+        match out {
+            Ok(out) => Ok(out && (objs[0].deref(interpreter)? == objs[1].deref(interpreter)?)),
+            e => e,
+        }
+    });
+    interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
 
     Ok(())
 }
@@ -176,14 +195,14 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
     match list {
         StackObject::Value(_) => interpreter.push_data(list),
         StackObject::Ref(p) => match p {
-            ObjectPointer::Null => return Err(InterpreterError::NullDeref),
+            ObjectPointer::Null => return Err(InterpreterError::new(InterpreterErrorKind::NullDeref)),
             ObjectPointer::Stack(_, _) => todo!(),
             ObjectPointer::Heap(p) => {
                 match interpreter
                     .heap
                     .get(p)
                     .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::NullDeref)?
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?
                 {
                     HeapObject::List(h, _) => {
                         let p = h.stack_alloc(interpreter)?;
@@ -201,16 +220,16 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
     assert!(n == 1);
     let list = interpreter.pop_data()?;
     match list {
-        StackObject::Value(_) => return Err(InterpreterError::ExpectedList),
+        StackObject::Value(_) => return Err(InterpreterError::new(InterpreterErrorKind::ExpectedList)),
         StackObject::Ref(p) => match p {
-            ObjectPointer::Null => return Err(InterpreterError::NullDeref),
+            ObjectPointer::Null => return Err(InterpreterError::new(InterpreterErrorKind::NullDeref)),
             ObjectPointer::Stack(_, _) => todo!(),
             ObjectPointer::Heap(p) => {
                 match interpreter
                     .heap
                     .get(p)
                     .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::NullDeref)?
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?
                 {
                     HeapObject::List(_, t) => {
                         let p = t.stack_alloc(interpreter)?;

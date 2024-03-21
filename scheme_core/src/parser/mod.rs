@@ -65,7 +65,9 @@ impl Parser {
         let mut errors = Vec::new();
         let mut items = Vec::new();
         match self.tokens.peek_front().unwrap() {
-            ParserTokenKind::Symbol(_) | ParserTokenKind::Literal(_) |  ParserTokenKind::String(_) => {
+            ParserTokenKind::Symbol(_)
+            | ParserTokenKind::Literal(_)
+            | ParserTokenKind::String(_) => {
                 while !self.tokens.is_empty() {
                     match Self::parse_item(&mut self.tokens) {
                         Ok(item) => items.push(item),
@@ -88,9 +90,9 @@ impl Parser {
 
         let Token { kind, span } = stream.pop_front().unwrap();
         match kind {
-            TK::Literal(lit) => Ok(AST::Literal(lit)),
-            TK::Identifier(ident) => Ok(AST::Identifier(ident)),
-            TK::String(s) => Ok(AST::StringLiteral(s)),
+            TK::Literal(lit) => Ok(AST::Literal(lit, span)),
+            TK::Identifier(ident) => Ok(AST::Identifier(ident, span)),
+            TK::String(s) => Ok(AST::StringLiteral(s, span)),
 
             // New block
             b @ TK::Symbol('(') => {
@@ -143,8 +145,8 @@ impl Parser {
 
                 Self::parse_list(block)
             }
-            ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident)),
-            ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit)),
+            ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident, span)),
+            ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit, span)),
             _ => panic!("No Item Found"),
         }
     }

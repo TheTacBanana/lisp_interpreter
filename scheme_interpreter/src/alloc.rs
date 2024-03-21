@@ -1,5 +1,5 @@
 use crate::{
-    object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject}, InterpreterContext, InterpreterError, InterpreterResult
+    object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject}, InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult
 };
 
 pub trait InterpreterStackAlloc: Sized {
@@ -9,7 +9,7 @@ pub trait InterpreterStackAlloc: Sized {
 impl InterpreterStackAlloc for ObjectPointer {
     fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
         match self {
-            ObjectPointer::Null => Err(InterpreterError::CannotAllocateNull),
+            ObjectPointer::Null => Err(InterpreterError::new(InterpreterErrorKind::CannotAllocateNull)),
             p => Ok(StackObject::Ref(p)),
         }
     }
@@ -85,7 +85,7 @@ impl InterpreterHeapAlloc for UnallocatedObject {
                 let tail = tail.heap_alloc(interpreter)?;
                 HeapObject::List(head, tail)
             }
-            UnallocatedObject::Null => return Err(InterpreterError::CannotAllocateNull),
+            UnallocatedObject::Null => return Err(InterpreterError::new(InterpreterErrorKind::CannotAllocateNull)),
         }
         .heap_alloc(interpreter)
     }

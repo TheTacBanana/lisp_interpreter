@@ -1,6 +1,5 @@
 use crate::{
-    object::{HeapObject, ObjectPointer, ObjectRef, StackObject},
-    InterpreterContext, InterpreterError, InterpreterResult,
+    object::{HeapObject, ObjectPointer, ObjectRef, StackObject}, InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult
 };
 
 pub trait InterpreterDeref {
@@ -14,23 +13,23 @@ impl InterpreterDeref for ObjectPointer {
         interpreter: &'a InterpreterContext,
     ) -> InterpreterResult<ObjectRef<'a>> {
         match self {
-            ObjectPointer::Null => Err(InterpreterError::NullDeref),
+            ObjectPointer::Null => Err(InterpreterError::new(InterpreterErrorKind::NullDeref)),
             ObjectPointer::Heap(p) => {
                 let obj = interpreter
                     .heap
                     .get(*p)
                     .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::PointerDoesNotExist)?;
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::PointerDoesNotExist))?;
                 obj.deref(interpreter)
             }
             ObjectPointer::Stack(frame, index) => {
                 let frame = interpreter
                     .frame_stack
                     .get(*frame)
-                    .ok_or(InterpreterError::StackIndexOutOfRange)?;
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::StackIndexOutOfRange))?;
                 let obj = frame
                     .get_local_by_index(*index)
-                    .ok_or(InterpreterError::PointerDoesNotExist)?;
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::PointerDoesNotExist))?;
                 obj.deref(interpreter)
             }
         }
