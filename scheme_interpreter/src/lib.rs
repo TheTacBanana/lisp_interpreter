@@ -60,6 +60,8 @@ impl InterpreterContext {
         alloc_func(self, Func::Native("cdr".into(), std_lib::cdr));
 
         alloc_func(self, Func::Native("write".into(), std_lib::write));
+
+        alloc_func(self, Func::Native("eq".into(), std_lib::eq));
         alloc_func(self, Func::Native("+".into(), std_lib::add));
         alloc_func(self, Func::Native("-".into(), std_lib::sub));
         alloc_func(self, Func::Native("*".into(), std_lib::mul));

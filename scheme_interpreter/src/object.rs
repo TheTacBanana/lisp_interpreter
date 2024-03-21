@@ -2,7 +2,7 @@ use scheme_core::parser::token::Literal;
 
 use crate::func::Func;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum StackObject {
     Value(Literal),
     Ref(ObjectPointer),
@@ -54,7 +54,7 @@ impl std::fmt::Display for HeapObject {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ObjectRef<'a> {
     Null,
     Value(Literal),
