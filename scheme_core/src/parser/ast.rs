@@ -1,6 +1,4 @@
-use crate::token::span::Span;
-
-use super::token::Literal;
+use crate::{literal::Literal, token::span::Span};
 
 type P<T> = Box<T>;
 

@@ -1,4 +1,4 @@
-use scheme_core::parser::token::Literal;
+use scheme_core::literal::Literal;
 
 use crate::func::Func;
 

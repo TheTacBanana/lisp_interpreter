@@ -12,6 +12,7 @@ pub fn main() -> Result<()> {
     }
 
     let mut interpreter = InterpreterContext::new();
+    interpreter.with_std();
 
     let mut file = File::open(&files[0])?;
     let mut contents = String::new();
@@ -25,13 +26,15 @@ pub fn main() -> Result<()> {
     }
 
     let parser_result = Parser::new(lexer_result.tokens).parse();
-    // if let Some(writer) = parser_result.error_writer(&contents) {
-    //     writer.write();
-    //     return Ok(());
-    // }
+    if error_writer.report_errors(parser_result.errors).is_err() {
+        return Ok(());
+    }
 
     for ast in parser_result.ast {
-        interpreter.interpret(&ast)?;
+        if let Err(err) = interpreter.interpret(&ast) {
+            let _ = error_writer.report_errors(vec![err]);
+            break;
+        }
     }
 
     Ok(())

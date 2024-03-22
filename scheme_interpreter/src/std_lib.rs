@@ -1,4 +1,4 @@
-use scheme_core::parser::{ast::AST, token::Literal};
+use scheme_core::{literal::Literal, parser::ast::AST};
 
 use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},

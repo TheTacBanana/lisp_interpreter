@@ -1,18 +1,14 @@
 use core::panic;
 
 use crate::{
-    lexer::token::{LexerToken, LexerTokenKind},
-    token::{
+    lexer::token::{LexerToken, LexerTokenKind}, literal::Literal, token::{
         span::Span,
         stream::{TokenStream, TokenStreamExt},
         Token,
-    },
+    }
 };
 
-use self::{
-    ast::AST,
-    token::{Literal, ParseTokenError, ParserTokenKind},
-};
+use self::{ast::AST, token::{ParseTokenError, ParserError, ParserTokenKind}};
 
 pub mod ast;
 pub mod token;
@@ -82,9 +78,7 @@ impl Parser {
         ParseResult { ast: items, errors }
     }
 
-    fn parse_item(
-        stream: &mut TokenStream,
-    ) -> Result<AST, (Span, ParseTokenError)> {
+    fn parse_item(stream: &mut TokenStream) -> Result<AST, ParserError> {
         use ParserTokenKind as TK;
 
         let Token { kind, span } = stream.pop_front().unwrap();
@@ -97,7 +91,7 @@ impl Parser {
             b @ TK::Symbol('(') => {
                 let index = match stream.opposite(b) {
                     Ok(index) => index,
-                    Err(_) => Err((span, ParseTokenError::MissingBracket))?,
+                    Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
                 block.pop_back();
@@ -112,9 +106,7 @@ impl Parser {
         }
     }
 
-    fn parse_block(
-        mut stream: TokenStream,
-    ) -> Result<AST, (Span, ParseTokenError)> {
+    fn parse_block(mut stream: TokenStream) -> Result<AST, ParserError> {
         let total_span = stream.total_span().unwrap(); // TODO:
         let item = Self::parse_item(&mut stream)?;
 
@@ -130,20 +122,18 @@ impl Parser {
         Ok(AST::Operation(Box::new(item), items, total_span))
     }
 
-    fn parse_quoted(
-        stream: &mut TokenStream,
-    ) -> Result<AST, (Span, ParseTokenError)> {
+    fn parse_quoted(stream: &mut TokenStream) -> Result<AST, ParserError> {
         let Token { kind, span } = stream.pop_front().unwrap();
         match kind {
             b @ ParserTokenKind::Symbol('(') => {
                 let index = match stream.opposite(b) {
                     Ok(index) => index,
-                    Err(_) => Err((span, ParseTokenError::MissingBracket))?,
+                    Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
-                block.pop_back();
+                let last = block.pop_back().unwrap();
 
-                Self::parse_list(block)
+                Self::parse_list(block, span.max_span(last.span))
             }
             ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident, span)),
             ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit, span)),
@@ -151,16 +141,14 @@ impl Parser {
         }
     }
 
-    fn parse_list(
-        mut stream: TokenStream,
-    ) -> Result<AST, (Span, ParseTokenError)> {
+    fn parse_list(mut stream: TokenStream, span: Span) -> Result<AST, ParserError> {
         let mut items = Vec::new();
         while !stream.is_empty() {
             let item = Self::parse_item(&mut stream)?;
             items.push(item);
         }
         if items.is_empty() {
-            Ok(AST::EmptyList(Span::zero())) //TODO: Distinctly incorrect
+            Ok(AST::EmptyList(span))
         } else {
             Ok(AST::list_from_vec(items.into()))
         }
@@ -170,5 +158,5 @@ impl Parser {
 #[derive(Debug)]
 pub struct ParseResult {
     pub ast: Vec<AST>,
-    pub errors: Vec<(Span, ParseTokenError)>,
+    pub errors: Vec<ParserError>,
 }
