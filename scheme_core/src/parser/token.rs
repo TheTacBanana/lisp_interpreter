@@ -53,6 +53,10 @@ pub enum ParseTokenError {
     NoItemFound,
     /// Block does not contain any items
     EmptyBlock,
+
+    QuoteWithoutItem,
+
+    ItemCannotBeQuoted,
 }
 
 impl Error for ParseTokenError {}
@@ -65,6 +69,8 @@ impl std::fmt::Display for ParseTokenError {
             ParseTokenError::MissingBracket => "Missing closing Bracket",
             ParseTokenError::NoItemFound => "No parseable item found",
             ParseTokenError::EmptyBlock => "Block is empty",
+            ParseTokenError::QuoteWithoutItem => "No Item found to quote",
+            ParseTokenError::ItemCannotBeQuoted => "Item cannot be quoted",
         }
         .to_string();
         write!(f, "{}", s)?;

@@ -98,12 +98,12 @@ impl Parser {
 
         let Token {
             kind,
-            span: first_span,
-        } = stream.pop_front().unwrap();
+            span,
+        } = stream.pop_front().unwrap(); // SAFE
         match kind {
-            TK::Literal(lit) => Ok(AST::Literal(lit, first_span)),
-            TK::Identifier(ident) => Ok(AST::Identifier(ident, first_span)),
-            TK::String(s) => Ok(AST::StringLiteral(s, first_span)),
+            TK::Literal(lit) => Ok(AST::Literal(lit, span)),
+            TK::Identifier(ident) => Ok(AST::Identifier(ident, span)),
+            TK::String(s) => Ok(AST::StringLiteral(s, span)),
 
             // New block
             b @ TK::Symbol('(') => {
@@ -111,20 +111,20 @@ impl Parser {
                     Ok(index) => index,
                     Err(_) => Err(ParserError::new(
                         ParseTokenError::MissingBracket,
-                        first_span,
+                        span,
                     ))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
                 let end_token = block.pop_back().unwrap();
-                let total_span = first_span.max_span(end_token.span);
+                let total_span = span.max_span(end_token.span);
 
                 Self::parse_block(block, total_span)
             }
 
             // Quote
-            TK::Symbol('\'') => Self::parse_quoted(stream),
+            TK::Symbol('\'') => Self::parse_quoted(stream, span),
 
-            _ => Err(ParserError::new(ParseTokenError::NoItemFound, first_span)),
+            _ => Err(ParserError::new(ParseTokenError::NoItemFound, span)),
         }
     }
 
@@ -146,8 +146,11 @@ impl Parser {
         Ok(AST::Operation(Box::new(item), items, span))
     }
 
-    fn parse_quoted(stream: &mut TokenStream) -> Result<AST, ParserError> {
-        let Token { kind, span } = stream.pop_front().unwrap();
+    fn parse_quoted(stream: &mut TokenStream, quote_span: Span) -> Result<AST, ParserError> {
+        let Token { kind, span } = stream.pop_front().ok_or(ParserError::new(
+            ParseTokenError::QuoteWithoutItem,
+            quote_span,
+        ))?;
         match kind {
             b @ ParserTokenKind::Symbol('(') => {
                 let index = match stream.opposite(b) {
@@ -161,7 +164,8 @@ impl Parser {
             }
             ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident, span)),
             ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit, span)),
-            _ => panic!("No Item Found"),
+            ParserTokenKind::String(s) => Ok(AST::StringLiteral(s, span)),
+            _ => Err(ParserError::new(ParseTokenError::ItemCannotBeQuoted, span)),
         }
     }
 
