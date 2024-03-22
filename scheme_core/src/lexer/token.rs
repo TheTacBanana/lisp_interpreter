@@ -116,7 +116,7 @@ impl std::fmt::Display for LexerTokenErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let tmp;
         let s = match self {
-            LexerTokenErrorKind::EscapeCharacterExpected => "Escape character expected after '\'",
+            LexerTokenErrorKind::EscapeCharacterExpected => "Escape character expected after '\\'",
             LexerTokenErrorKind::EOFInStringLiteral => "End of file encountered in String Literal",
             LexerTokenErrorKind::InvalidInFloat => "Invalid character in Floating Point Number",
             LexerTokenErrorKind::MultiplePointsInFloat => {

@@ -23,42 +23,47 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(mut tokens_in: Vec<LexerToken>) -> Self {
+    pub fn new(mut tokens_in: Vec<LexerToken>) -> Option<Self> {
         let tokens = tokens_in
             .drain(..)
-            .fold(TokenStream::default(), |mut l, r| {
+            .fold(Some(TokenStream::default()), |l, r| {
+                let mut l = l?;
+
                 let Token { kind, span } = r;
 
                 let token = match kind {
                     LexerTokenKind::Boolean(b) => {
-                        let b = match b.chars().nth(1).unwrap() {
+                        let b = match b.chars().nth(1)? {
                             't' | 'T' => true,
                             'f' | 'F' => false,
-                            _ => panic!(),
+                            _ => unreachable!(),
                         };
                         Some(Literal::from_bool(b).into())
                     }
                     LexerTokenKind::Numeric(nl) => Some(Literal::from_numeric(nl).into()),
                     LexerTokenKind::Character(ch) => {
-                        Some(Literal::from_char(ch.chars().nth(2).unwrap()).into())
+                        Some(Literal::from_char(ch.chars().nth(2)?).into())
                     }
                     LexerTokenKind::Identifer(i) => Some(ParserTokenKind::Identifier(i)),
                     LexerTokenKind::String(s) => {
-                        Some(ParserTokenKind::String(s[1..(s.len() - 1)].to_string()).into())
+                        let mut s = s[1..].to_string();
+
+                        if s.len() >= 1 && s.ends_with("\"") {
+                            s.pop();
+                        }
+                        Some(ParserTokenKind::String(s).into())
                     }
-                    LexerTokenKind::Symbol(s) => {
-                        Some(ParserTokenKind::Symbol(s.chars().next().unwrap()))
-                    }
+                    LexerTokenKind::Symbol(s) => Some(ParserTokenKind::Symbol(s.chars().next()?)),
                     _ => None,
                 };
 
                 if let Some(token) = token {
                     l.push_back(Token { kind: token, span });
                 };
-                l
+                Some(l)
             });
 
-        Parser { tokens }
+        Some(Parser { tokens: tokens? })
     }
 
     pub fn parse(mut self) -> ParseResult {
@@ -96,10 +101,7 @@ impl Parser {
     fn parse_item(stream: &mut TokenStream) -> Result<AST, ParserError> {
         use ParserTokenKind as TK;
 
-        let Token {
-            kind,
-            span,
-        } = stream.pop_front().unwrap(); // SAFE
+        let Token { kind, span } = stream.pop_front().unwrap(); // SAFE
         match kind {
             TK::Literal(lit) => Ok(AST::Literal(lit, span)),
             TK::Identifier(ident) => Ok(AST::Identifier(ident, span)),
@@ -109,10 +111,7 @@ impl Parser {
             b @ TK::Symbol('(') => {
                 let index = match stream.opposite(b) {
                     Ok(index) => index,
-                    Err(_) => Err(ParserError::new(
-                        ParseTokenError::MissingBracket,
-                        span,
-                    ))?,
+                    Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
                 let end_token = block.pop_back().unwrap();

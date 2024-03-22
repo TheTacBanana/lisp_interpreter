@@ -21,11 +21,12 @@ pub fn main() -> Result<()> {
     let error_writer = ErrorWriter::from_string(&contents);
 
     let lexer_result = Lexer::from_string(contents.clone()).lex();
-    if error_writer.report_errors(lexer_result.errors).is_err() {
-        return Ok(());
-    }
+    let _ = error_writer.report_errors(lexer_result.errors);
 
-    let parser_result = Parser::new(lexer_result.tokens).parse();
+    let Some(parser) = Parser::new(lexer_result.tokens) else {
+        return Ok(());
+    };
+    let parser_result = parser.parse();
     if error_writer.report_errors(parser_result.errors).is_err() {
         return Ok(());
     }

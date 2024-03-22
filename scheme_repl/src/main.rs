@@ -1,9 +1,15 @@
 use std::io::Write;
 
 use scheme_core::{
-    error::ErrorWriter, lexer::{self, Lexer}, parser::Parser
+    error::ErrorWriter,
+    lexer::{self, Lexer},
+    parser::Parser,
 };
-use scheme_interpreter::{deref::InterpreterDeref, object::{ObjectRef, StackObject}, InterpreterContext};
+use scheme_interpreter::{
+    deref::InterpreterDeref,
+    object::{ObjectRef, StackObject},
+    InterpreterContext,
+};
 
 fn main() {
     let verbose = std::env::args().any(|s| s.to_uppercase() == "V");
@@ -25,9 +31,8 @@ fn main() {
 
         let error_writer = ErrorWriter::from_string(&str_in);
         let lexer_result = Lexer::from_string(str_in.clone()).lex();
-        if error_writer.report_errors(lexer_result.errors).is_err() {
-            continue;
-        } else if verbose {
+        let _ = error_writer.report_errors(lexer_result.errors);
+        if verbose {
             println!(
                 "{:?}",
                 lexer_result
@@ -38,7 +43,10 @@ fn main() {
             );
         }
 
-        let parser_result = Parser::new(lexer_result.tokens).parse();
+        let Some(parser) = Parser::new(lexer_result.tokens) else {
+            continue;
+        };
+        let parser_result = parser.parse();
         if error_writer.report_errors(parser_result.errors).is_err() {
             continue;
         } else if verbose {

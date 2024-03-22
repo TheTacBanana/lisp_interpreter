@@ -6,7 +6,8 @@ use crate::{
 };
 
 use self::{
-    literal::NumericLiteral, token::{LexerErr, LexerError, LexerToken, LexerTokenErrorKind, LexerTokenKind}
+    literal::NumericLiteral,
+    token::{LexerErr, LexerError, LexerToken, LexerTokenErrorKind, LexerTokenKind},
 };
 
 pub mod literal;
@@ -105,6 +106,12 @@ impl Lexer {
                         State::Consume
                     }
                     (Token::String(_), Some('"')) => State::ConsumeAndBreak,
+                    (Token::String(_), Some(c))
+                        if Rules::line_break(c) && self.file.iter().skip(1).next() == None =>
+                    {
+                        err = Some(LexerTokenErrorKind::EOFInStringLiteral);
+                        State::Break
+                    }
                     (Token::String(_), Some(_)) => State::Consume,
 
                     (
@@ -174,9 +181,9 @@ impl Lexer {
             (c, Some('\\')) if Rules::start_character(c) => {
                 Ok(self.start_new_token(LexerTokenKind::Character(c.to_string())))
             }
-            (n, a) if Rules::start_numeric(n, a.map(|c| *c)) => Ok(self.start_new_token(LexerTokenKind::Numeric(
-                NumericLiteral::new(n, a.map(|c| *c)),
-            ))),
+            (n, a) if Rules::start_numeric(n, a.map(|c| *c)) => Ok(self.start_new_token(
+                LexerTokenKind::Numeric(NumericLiteral::new(n, a.map(|c| *c))),
+            )),
             (s, _) if Rules::start_string(s) => {
                 Ok(self.start_new_token(LexerTokenKind::String(s.to_string())))
             }
@@ -216,12 +223,11 @@ pub struct LexResult {
     pub errors: Vec<LexerError>,
 }
 
-
 #[cfg(test)]
 mod test {
     use crate::lexer::{
         literal::NumericLiteral,
-        token::{LexerTokenErrorKind, LexerTokenKind, LexerError},
+        token::{LexerError, LexerTokenErrorKind, LexerTokenKind},
     };
 
     use super::Lexer;
@@ -253,11 +259,14 @@ mod test {
                     .drain(..)
                     .zip($tokens)
                     .for_each(|(l, r)| assert_eq!((*l), r));
-                result.errors.drain(..).map(|x| x.kind).zip($errors).for_each(
-                    |(l, r): (LexerTokenErrorKind, LexerTokenErrorKind)| {
+                result
+                    .errors
+                    .drain(..)
+                    .map(|x| x.kind)
+                    .zip($errors)
+                    .for_each(|(l, r): (LexerTokenErrorKind, LexerTokenErrorKind)| {
                         assert_eq!(l, r);
-                    },
-                );
+                    });
             }
         };
     }
