@@ -1,14 +1,19 @@
 use core::panic;
 
 use crate::{
-    lexer::token::{LexerToken, LexerTokenKind}, literal::Literal, token::{
+    lexer::token::{LexerToken, LexerTokenKind},
+    literal::Literal,
+    token::{
         span::Span,
         stream::{TokenStream, TokenStreamExt},
         Token,
-    }
+    },
 };
 
-use self::{ast::AST, token::{ParseTokenError, ParserError, ParserTokenKind}};
+use self::{
+    ast::AST,
+    token::{ParseTokenError, ParserError, ParserTokenKind},
+};
 
 pub mod ast;
 pub mod token;
@@ -57,6 +62,13 @@ impl Parser {
     }
 
     pub fn parse(mut self) -> ParseResult {
+        if self.tokens.is_empty() {
+            return ParseResult {
+                ast: Vec::new(),
+                errors: Vec::new(),
+            };
+        }
+
         let mut errors = Vec::new();
         let mut items = Vec::new();
         match self.tokens.peek_front().unwrap() {
@@ -70,10 +82,13 @@ impl Parser {
                     };
                 }
             }
-            ParserTokenKind::Identifier(_) => match Self::parse_block(self.tokens) {
-                Ok(item) => items.push(item),
-                Err(e) => errors.push(e),
-            },
+            ParserTokenKind::Identifier(_) => {
+                let total_span = self.tokens.total_span().unwrap();
+                match Self::parse_block(self.tokens, total_span) {
+                    Ok(item) => items.push(item),
+                    Err(e) => errors.push(e),
+                }
+            }
         };
         ParseResult { ast: items, errors }
     }
@@ -81,35 +96,44 @@ impl Parser {
     fn parse_item(stream: &mut TokenStream) -> Result<AST, ParserError> {
         use ParserTokenKind as TK;
 
-        let Token { kind, span } = stream.pop_front().unwrap();
+        let Token {
+            kind,
+            span: first_span,
+        } = stream.pop_front().unwrap();
         match kind {
-            TK::Literal(lit) => Ok(AST::Literal(lit, span)),
-            TK::Identifier(ident) => Ok(AST::Identifier(ident, span)),
-            TK::String(s) => Ok(AST::StringLiteral(s, span)),
+            TK::Literal(lit) => Ok(AST::Literal(lit, first_span)),
+            TK::Identifier(ident) => Ok(AST::Identifier(ident, first_span)),
+            TK::String(s) => Ok(AST::StringLiteral(s, first_span)),
 
             // New block
             b @ TK::Symbol('(') => {
                 let index = match stream.opposite(b) {
                     Ok(index) => index,
-                    Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
+                    Err(_) => Err(ParserError::new(
+                        ParseTokenError::MissingBracket,
+                        first_span,
+                    ))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
-                block.pop_back();
+                let end_token = block.pop_back().unwrap();
+                let total_span = first_span.max_span(end_token.span);
 
-                Self::parse_block(block)
+                Self::parse_block(block, total_span)
             }
 
             // Quote
             TK::Symbol('\'') => Self::parse_quoted(stream),
 
-            _ => panic!("No item found"),
+            _ => Err(ParserError::new(ParseTokenError::NoItemFound, first_span)),
         }
     }
 
-    fn parse_block(mut stream: TokenStream) -> Result<AST, ParserError> {
-        let total_span = stream.total_span().unwrap(); // TODO:
-        let item = Self::parse_item(&mut stream)?;
+    fn parse_block(mut stream: TokenStream, span: Span) -> Result<AST, ParserError> {
+        if stream.is_empty() {
+            Err(ParserError::new(ParseTokenError::EmptyBlock, span))?;
+        }
 
+        let item = Self::parse_item(&mut stream)?;
         if stream.is_empty() {
             return Ok(item);
         }
@@ -119,7 +143,7 @@ impl Parser {
             let item = Self::parse_item(&mut stream)?;
             items.push(item);
         }
-        Ok(AST::Operation(Box::new(item), items, total_span))
+        Ok(AST::Operation(Box::new(item), items, span))
     }
 
     fn parse_quoted(stream: &mut TokenStream) -> Result<AST, ParserError> {

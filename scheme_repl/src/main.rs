@@ -39,11 +39,11 @@ fn main() {
         }
 
         let parser_result = Parser::new(lexer_result.tokens).parse();
-        // if error_writer.report_errors(parser_result.errors).is_err() {
-            // continue;
-        // } else if verbose {
-            // println!("{:?}", parser_result.ast);
-        // }
+        if error_writer.report_errors(parser_result.errors).is_err() {
+            continue;
+        } else if verbose {
+            println!("{:?}", parser_result.ast);
+        }
 
         for ast in parser_result.ast {
             if let Err(err) = interpreter.interpret(&ast) {

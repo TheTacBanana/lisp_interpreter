@@ -49,6 +49,10 @@ pub enum ParseTokenError {
     UnmatchedBrackets,
     /// Missing bracket
     MissingBracket,
+    /// No parsable item found in Block
+    NoItemFound,
+    /// Block does not contain any items
+    EmptyBlock,
 }
 
 impl Error for ParseTokenError {}
@@ -59,6 +63,8 @@ impl std::fmt::Display for ParseTokenError {
         let s = match self {
             ParseTokenError::UnmatchedBrackets => "Mismatched closing bracket",
             ParseTokenError::MissingBracket => "Missing closing Bracket",
+            ParseTokenError::NoItemFound => "No parseable item found",
+            ParseTokenError::EmptyBlock => "Block is empty",
         }
         .to_string();
         write!(f, "{}", s)?;
