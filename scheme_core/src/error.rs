@@ -1,6 +1,4 @@
-use std::{error::Error, str::Lines, sync::atomic::AtomicPtr};
-
-use crate::{lexer::token::LexerTokenError, token::{span::Span, ErrorToken, Token, TokenKind}};
+use crate::token::span::Span;
 
 pub struct ErrorWriter {
     pub lines: Vec<String>,
@@ -78,5 +76,5 @@ impl ErrorWriter {
 }
 
 pub trait FormattedError {
-    fn fmt_err(&self, f: &ErrorWriter) -> std::fmt::Result;
+    fn fmt_err(&self, ew: &ErrorWriter) -> std::fmt::Result;
 }

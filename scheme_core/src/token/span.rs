@@ -64,8 +64,8 @@ impl LineCol {
     pub fn extend_with(&mut self, seq: String) {
         for ch in seq.chars() {
             if Rules::line_break(ch) {
-                self.line = 0;
-                self.col += 1;
+                self.col = 0;
+                self.line += 1;
             } else {
                 self.col += 1;
             }

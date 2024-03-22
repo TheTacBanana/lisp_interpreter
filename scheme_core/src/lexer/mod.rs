@@ -2,26 +2,21 @@ use std::collections::VecDeque;
 
 use crate::{
     rules::Rules,
-    token::{
-        span::{LineCol, Span},
-        stream::TokenStream,
-        TokenKind,
-    },
+    token::span::{LineCol, Span},
 };
 
 use self::{
-    literal::NumericLiteral, result::LexResult, token::{LexerErr, LexerToken, LexerTokenError, LexerTokenKind}
+    literal::NumericLiteral, token::{LexerErr, LexerError, LexerToken, LexerTokenErrorKind, LexerTokenKind}
 };
 
 pub mod literal;
 pub mod token;
-pub mod result;
 
 pub struct Lexer {
     whole_file: String,
     file: VecDeque<char>,
     tokens: Vec<LexerToken>,
-    errors: Vec<(usize, LexerTokenError)>,
+    errors: Vec<LexerError>,
     file_pos: LineCol,
 }
 
@@ -42,7 +37,7 @@ impl Lexer {
                 Ok(token) => token,
                 Err(token_err) => {
                     let (token, err) = token_err.unpack();
-                    self.errors.push((self.tokens.len(), err));
+                    self.errors.push(LexerError::new(err, token.span));
                     token
                 }
             };
@@ -56,7 +51,7 @@ impl Lexer {
 
         LexResult {
             file: self.whole_file,
-            tokens: VecDeque::from(self.tokens),
+            tokens: self.tokens,
             errors: self.errors,
         }
     }
@@ -100,12 +95,12 @@ impl Lexer {
                     }
 
                     (Token::String(_), None) => {
-                        err = Some(LexerTokenError::EOFInStringLiteral);
+                        err = Some(LexerTokenErrorKind::EOFInStringLiteral);
                         State::Break
                     }
                     (Token::String(s), Some(c)) if s.chars().last().unwrap() == '\\' => {
                         if !Rules::escaped_char(c) {
-                            err = Some(LexerTokenError::EscapeCharacterExpected);
+                            err = Some(LexerTokenErrorKind::EscapeCharacterExpected);
                         }
                         State::Consume
                     }
@@ -133,7 +128,7 @@ impl Lexer {
                     (Token::Numeric(NL::Float(_)), Some('0'..='9')) => State::Consume,
                     (Token::Numeric(NL::Float(s) | NL::Dec(s)), Some('.')) => {
                         if s.contains('.') {
-                            err = Some(LexerTokenError::MultiplePointsInFloat)
+                            err = Some(LexerTokenErrorKind::MultiplePointsInFloat)
                         }
                         cur_token.map_inner(|t| LexerTokenKind::Numeric(NL::Float(t.to_string())));
 
@@ -214,11 +209,19 @@ impl Lexer {
     }
 }
 
+#[derive(Debug)]
+pub struct LexResult {
+    pub file: String,
+    pub tokens: Vec<LexerToken>,
+    pub errors: Vec<LexerError>,
+}
+
+
 #[cfg(test)]
 mod test {
     use crate::lexer::{
         literal::NumericLiteral,
-        token::{LexerTokenError, LexerTokenKind},
+        token::{LexerTokenErrorKind, LexerTokenKind, LexerError},
     };
 
     use super::Lexer;
@@ -250,10 +253,9 @@ mod test {
                     .drain(..)
                     .zip($tokens)
                     .for_each(|(l, r)| assert_eq!((*l), r));
-                result.errors.drain(..).zip($errors).for_each(
-                    |(l, r): ((usize, LexerTokenError), (usize, LexerTokenError))| {
-                        assert_eq!(l.0, r.0);
-                        assert_eq!(l.1, r.1);
+                result.errors.drain(..).map(|x| x.kind).zip($errors).for_each(
+                    |(l, r): (LexerTokenErrorKind, LexerTokenErrorKind)| {
+                        assert_eq!(l, r);
                     },
                 );
             }
@@ -325,7 +327,7 @@ mod test {
             LexerTokenKind::String("\"\\ \"".into()),
             LexerTokenKind::EOF
         ],
-        [(0, LexerTokenError::EscapeCharacterExpected)]
+        [LexerTokenErrorKind::EscapeCharacterExpected]
     );
 
     lex_test!(
@@ -335,7 +337,7 @@ mod test {
             LexerTokenKind::String("\"uwu :3".into()),
             LexerTokenKind::EOF
         ],
-        [(0, LexerTokenError::EOFInStringLiteral)]
+        [LexerTokenErrorKind::EOFInStringLiteral]
     );
 
     lex_test!(
@@ -392,7 +394,7 @@ mod test {
             LexerTokenKind::Numeric(NumericLiteral::Float("200.394.334".into())),
             LexerTokenKind::EOF
         ],
-        [(0, LexerTokenError::MultiplePointsInFloat)]
+        [LexerTokenErrorKind::MultiplePointsInFloat]
     );
 
     lex_test!(

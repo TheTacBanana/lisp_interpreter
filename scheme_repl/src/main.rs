@@ -23,36 +23,33 @@ fn main() {
             .read_line(&mut str_in)
             .expect("Failed to take input");
 
-        let mut error_writer = ErrorWriter::from_string(&str_in);
+        let error_writer = ErrorWriter::from_string(&str_in);
         let lexer_result = Lexer::from_string(str_in.clone()).lex();
-        // if let Some(writer) = lexer_result.error_writer() {
-            // writer.write();
-            // continue;
-        // } else if verbose {
-        //     println!(
-        //         "{:?}",
-        //         lexer_result
-        //             .tokens
-        //             .iter()
-        //             .map(|t| t.inner())
-        //             .collect::<Vec<_>>()
-        //     );
-        // }
+        if error_writer.report_errors(lexer_result.errors).is_err() {
+            continue;
+        } else if verbose {
+            println!(
+                "{:?}",
+                lexer_result
+                    .tokens
+                    .iter()
+                    .map(|t| t.inner())
+                    .collect::<Vec<_>>()
+            );
+        }
 
         let parser_result = Parser::new(lexer_result.tokens).parse();
-        // if let Some(writer) = parser_result.error_writer(&str_in) {
-        //     writer.write();
-        //     continue;
+        // if error_writer.report_errors(parser_result.errors).is_err() {
+            // continue;
         // } else if verbose {
-        //     println!("{:?}", parser_result.ast);
+            // println!("{:?}", parser_result.ast);
         // }
 
         for ast in parser_result.ast {
             if let Err(err) = interpreter.interpret(&ast) {
                 interpreter.stack_trace();
                 interpreter.heap_dump();
-                error_writer.report_errors(vec![err]);
-                // println!("{err}");
+                let _ = error_writer.report_errors(vec![err]);
             }
 
             if let Ok(p) = interpreter.pop_data() {

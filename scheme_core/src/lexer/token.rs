@@ -1,11 +1,11 @@
-use crate::token::{ErrorToken, Token, TokenKind};
+use crate::{error::{ErrorWriter, FormattedError}, token::{span::Span, ErrorToken, Token, TokenKind}};
 use std::error::Error;
 
 use super::literal::NumericLiteral;
 
 pub type LexerToken = Token<LexerTokenKind>;
 
-pub type LexerErr = ErrorToken<LexerTokenKind, LexerTokenError>;
+pub type LexerErr = ErrorToken<LexerTokenKind, LexerTokenErrorKind>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LexerTokenKind {
@@ -73,8 +73,31 @@ impl LexerTokenKind {
     }
 }
 
+#[derive(Debug)]
+pub struct LexerError {
+    pub span: Span,
+    pub kind: LexerTokenErrorKind,
+}
+
+impl LexerError {
+    pub fn new(kind: LexerTokenErrorKind, span: Span) -> Self {
+        Self { span, kind }
+    }
+}
+
+impl FormattedError for LexerError {
+    fn fmt_err(&self, ew: &crate::error::ErrorWriter) -> std::fmt::Result {
+        println!("Error: {}", self.kind);
+        for span in ew.span_to_lines(self.span).unwrap() {
+            println!("{}", ew.get_line(span.start.line).unwrap());
+            println!("{}", ErrorWriter::underline_span(span));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum LexerTokenError {
+pub enum LexerTokenErrorKind {
     /// Escape character expected after '\'
     EscapeCharacterExpected,
     /// End of file encountered in String Literal
@@ -89,21 +112,21 @@ pub enum LexerTokenError {
     PointInNAryLiteral(usize),
 }
 
-impl std::fmt::Display for LexerTokenError {
+impl std::fmt::Display for LexerTokenErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let tmp;
         let s = match self {
-            LexerTokenError::EscapeCharacterExpected => " Escape character expected after '\'",
-            LexerTokenError::EOFInStringLiteral => "End of file encountered in String Literal",
-            LexerTokenError::InvalidInFloat => "Invalid character in Floating Point Number",
-            LexerTokenError::MultiplePointsInFloat => {
+            LexerTokenErrorKind::EscapeCharacterExpected => "Escape character expected after '\'",
+            LexerTokenErrorKind::EOFInStringLiteral => "End of file encountered in String Literal",
+            LexerTokenErrorKind::InvalidInFloat => "Invalid character in Floating Point Number",
+            LexerTokenErrorKind::MultiplePointsInFloat => {
                 "Multiple decimal points in Floating Point Number"
             }
-            LexerTokenError::InvalidInNAryLiteral(n) => {
+            LexerTokenErrorKind::InvalidInNAryLiteral(n) => {
                 tmp = format!("Invalid character in Base {n} Literal");
                 &tmp
             }
-            LexerTokenError::PointInNAryLiteral(n) => {
+            LexerTokenErrorKind::PointInNAryLiteral(n) => {
                 tmp = format!("Decimal point in Base {n} Literal");
                 &tmp
             }
@@ -114,4 +137,4 @@ impl std::fmt::Display for LexerTokenError {
     }
 }
 
-impl Error for LexerTokenError {}
+impl Error for LexerTokenErrorKind {}

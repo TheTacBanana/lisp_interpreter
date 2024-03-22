@@ -1,7 +1,7 @@
 use std::{fs::File, io::Read};
 
 use anyhow::{Ok, Result};
-use scheme_core::{lexer::Lexer, parser::Parser};
+use scheme_core::{error::ErrorWriter, lexer::Lexer, parser::Parser};
 use scheme_interpreter::InterpreterContext;
 
 pub fn main() -> Result<()> {
@@ -17,11 +17,12 @@ pub fn main() -> Result<()> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
+    let error_writer = ErrorWriter::from_string(&contents);
+
     let lexer_result = Lexer::from_string(contents.clone()).lex();
-    // if let Some(writer) = lexer_result.error_writer() {
-    //     writer.write();
-    //     return Ok(());
-    // }
+    if error_writer.report_errors(lexer_result.errors).is_err() {
+        return Ok(());
+    }
 
     let parser_result = Parser::new(lexer_result.tokens).parse();
     // if let Some(writer) = parser_result.error_writer(&contents) {

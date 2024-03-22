@@ -1,7 +1,6 @@
 use core::panic;
 
 use crate::{
-    error::{ErrorWriter},
     lexer::token::{LexerToken, LexerTokenKind},
     token::{
         span::Span,
@@ -12,18 +11,18 @@ use crate::{
 
 use self::{
     ast::AST,
-    token::{Literal, ParseTokenError, ParserToken, ParserTokenKind},
+    token::{Literal, ParseTokenError, ParserTokenKind},
 };
 
 pub mod ast;
 pub mod token;
 
 pub struct Parser {
-    pub tokens: TokenStream<ParserToken>,
+    pub tokens: TokenStream,
 }
 
 impl Parser {
-    pub fn new(mut tokens_in: TokenStream<LexerToken>) -> Self {
+    pub fn new(mut tokens_in: Vec<LexerToken>) -> Self {
         let tokens = tokens_in
             .drain(..)
             .fold(TokenStream::default(), |mut l, r| {
@@ -84,7 +83,7 @@ impl Parser {
     }
 
     fn parse_item(
-        stream: &mut TokenStream<Token<ParserTokenKind>>,
+        stream: &mut TokenStream,
     ) -> Result<AST, (Span, ParseTokenError)> {
         use ParserTokenKind as TK;
 
@@ -114,7 +113,7 @@ impl Parser {
     }
 
     fn parse_block(
-        mut stream: TokenStream<Token<ParserTokenKind>>,
+        mut stream: TokenStream,
     ) -> Result<AST, (Span, ParseTokenError)> {
         let total_span = stream.total_span().unwrap(); // TODO:
         let item = Self::parse_item(&mut stream)?;
@@ -132,7 +131,7 @@ impl Parser {
     }
 
     fn parse_quoted(
-        stream: &mut TokenStream<Token<ParserTokenKind>>,
+        stream: &mut TokenStream,
     ) -> Result<AST, (Span, ParseTokenError)> {
         let Token { kind, span } = stream.pop_front().unwrap();
         match kind {
@@ -153,7 +152,7 @@ impl Parser {
     }
 
     fn parse_list(
-        mut stream: TokenStream<Token<ParserTokenKind>>,
+        mut stream: TokenStream,
     ) -> Result<AST, (Span, ParseTokenError)> {
         let mut items = Vec::new();
         while !stream.is_empty() {
@@ -173,29 +172,3 @@ pub struct ParseResult {
     pub ast: Vec<AST>,
     pub errors: Vec<(Span, ParseTokenError)>,
 }
-
-// impl ParseResult {
-//     pub fn error_writer(&self, file: &String) -> Option<ErrorWriter<ParseTokenError>> {
-//         if self.errors.len() == 0 {
-//             return None;
-//         }
-
-//         let lines = file.lines().collect::<Vec<_>>();
-
-//         let mut formatted_errors = Vec::new();
-//         for e in self.errors.iter() {
-//             let span = e.0;
-//             let whole_line = lines.get(span.start.line).unwrap().to_string();
-
-//             formatted_errors.push(IndividualError {
-//                 whole_line,
-//                 span,
-//                 error: e.1,
-//             })
-//         }
-
-//         Some(ErrorWriter {
-//             errors: formatted_errors,
-//         })
-//     }
-// }

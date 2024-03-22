@@ -94,7 +94,7 @@ impl InterpreterContext {
 
     pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
         match ast {
-            AST::Operation(op, params) => {
+            AST::Operation(op, params, _) => {
                 return self.interpret_operation(op, params.iter().collect())
             }
             AST::Identifier(ident, span) => {
@@ -102,12 +102,12 @@ impl InterpreterContext {
                 self.push_data(StackObject::Ref(p));
             }
             AST::Literal(lit, _) => self.push_data(StackObject::Value(*lit)),
-            AST::EmptyList => self.push_data(StackObject::Ref(ObjectPointer::Null)),
+            AST::EmptyList(_) => self.push_data(StackObject::Ref(ObjectPointer::Null)),
             AST::StringLiteral(s, _) => {
                 let p = UnallocatedObject::String(s.clone()).stack_alloc(self)?;
                 self.push_data(p)
             }
-            AST::List(head, tail) => {
+            AST::List(head, tail, _) => {
                 self.interpret(head)?;
                 let head = self.pop_data()?.heap_alloc(self)?;
                 self.interpret(tail)?;

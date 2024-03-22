@@ -41,7 +41,7 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             p.heap_alloc_named(ident, interpreter)?;
         }
         // Define a function
-        AST::Operation(op_name, op_params) => {
+        AST::Operation(op_name, op_params, _) => {
             let AST::Identifier(op_name, _) = &**op_name else {
                 return Err(InterpreterError::new(
                     InterpreterErrorKind::InvalidOperator((**op_name).clone()),
@@ -87,7 +87,7 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         AST::Identifier(ident, _) => {
             vec![ident.clone()]
         }
-        AST::Operation(op_name, op_params) => {
+        AST::Operation(op_name, op_params, _) => {
             let AST::Identifier(op_name, _) = &**op_name else {
                 panic!("Expected Identifier {op_name}")
             };
