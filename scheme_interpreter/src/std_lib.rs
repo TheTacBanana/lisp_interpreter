@@ -8,11 +8,34 @@ use crate::{
     InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
+pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+
+}
+
 pub fn if_macro(
     interpreter: &mut InterpreterContext,
     mut ast: Vec<&AST>,
 ) -> InterpreterResult<*const AST> {
-    assert!(ast.len() == 3);
+    if ast.len() != 3 {
+        Err(InterpreterError::spanned(
+            InterpreterErrorKind::OperationExpectedNParams {
+                expected: 3,
+                received: ast.len(),
+            },
+            {
+                if let Some(span) = ast
+                    .iter()
+                    .skip(3)
+                    .map(|l| l.span())
+                    .reduce(|l, r| l.max_span(r))
+                {
+                    span
+                } else {
+                    ast.last().unwrap().span()
+                }
+            },
+        ))?
+    }
 
     let mut drain = ast.drain(..);
     let cond = drain.next().unwrap();
@@ -174,22 +197,36 @@ bin_op!(sub, l, r, l - r);
 bin_op!(mul, l, r, l * r);
 bin_op!(div, l, r, l / r);
 
-pub fn eq(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    let mut objs = Vec::new();
-    for _ in 0..n {
-        objs.push(interpreter.pop_data()?);
-    }
-    objs.reverse();
+macro_rules! cmp_op {
+    ($name:ident, $l:ident, $r:ident, $calc:expr) => {
+        pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+            let mut objs = Vec::new();
+            for _ in 0..n {
+                objs.push(interpreter.pop_data()?);
+            }
+            objs.reverse();
 
-    let drain = objs.windows(2);
-    let out = drain.fold(Ok(true), |out, objs| match out {
-        Ok(out) => Ok(out && (objs[0].deref(interpreter)? == objs[1].deref(interpreter)?)),
-        e => e,
-    });
-    interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
+            let drain = objs.windows(2);
+            let out = drain.fold(Ok(true), |out, objs| match out {
+                Ok(out) => Ok(out && {
+                    let $l = objs[0].deref(interpreter)?;
+                    let $r = objs[1].deref(interpreter)?;
+                    $calc
+                }),
+                e => e,
+            });
+            interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
 
-    Ok(())
+            Ok(())
+        }
+    };
 }
+
+cmp_op!(eq, l, r, l == r);
+cmp_op!(lt, l, r, l < r);
+cmp_op!(lteq, l, r, l <= r);
+cmp_op!(gt, l, r, l > r);
+cmp_op!(gteq, l, r, l >= r);
 
 pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
     assert!(n == 1);
@@ -200,7 +237,15 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
             ObjectPointer::Null => {
                 return Err(InterpreterError::new(InterpreterErrorKind::NullDeref))
             }
-            ObjectPointer::Stack(_, _) => todo!(),
+            ObjectPointer::Stack(i, p) => {
+                interpreter.push_data(
+                    *interpreter
+                        .frame_stack
+                        .get(i)
+                        .and_then(|f| f.get_local_by_index(p))
+                        .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?,
+                );
+            }
             ObjectPointer::Heap(p) => {
                 match interpreter
                     .heap

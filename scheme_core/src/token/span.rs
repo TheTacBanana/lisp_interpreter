@@ -2,7 +2,7 @@ use crate::rules::Rules;
 
 /// Describes the Position of a Token in a File
 /// Inclusive of both sides [start-end]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     pub start: LineCol,
     pub end: LineCol,

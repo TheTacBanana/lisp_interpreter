@@ -13,7 +13,7 @@ impl InterpreterDeref for ObjectPointer {
         interpreter: &'a InterpreterContext,
     ) -> InterpreterResult<ObjectRef<'a>> {
         match self {
-            ObjectPointer::Null => Err(InterpreterError::new(InterpreterErrorKind::NullDeref)),
+            ObjectPointer::Null => Ok(ObjectRef::Null), //TODO:
             ObjectPointer::Heap(p) => {
                 let obj = interpreter
                     .heap

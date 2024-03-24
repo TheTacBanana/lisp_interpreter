@@ -6,7 +6,7 @@ pub type NativeFunc = fn(&mut InterpreterContext, usize) -> InterpreterResult<()
 pub type TokenNativeFunc = fn(&mut InterpreterContext, Vec<&AST>) -> InterpreterResult<()>;
 pub type MacroFunc = fn(&mut InterpreterContext, Vec<&AST>) -> InterpreterResult<*const AST>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Func {
     Native(String, NativeFunc),
     TokenNative(String, TokenNativeFunc),

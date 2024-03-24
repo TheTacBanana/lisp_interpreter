@@ -1,12 +1,16 @@
 #![feature(let_chains)]
 
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, path::PathBuf};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
-use scheme_core::{error::{ErrorWriter, FormattedError}, parser::ast::AST, token::span::Span};
+use scheme_core::{
+    error::{ErrorWriter, FormattedError},
+    parser::ast::AST,
+    token::span::Span,
+};
 
 use crate::func::Func;
 
@@ -20,6 +24,8 @@ pub mod std_lib;
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 pub struct InterpreterContext {
+    paths: HashMap<PathBuf, Vec<AST>>,
+
     frame_stack: Vec<Frame>,
     data_stack: Vec<StackObject>,
 
@@ -30,6 +36,8 @@ pub struct InterpreterContext {
 impl InterpreterContext {
     pub fn new() -> Self {
         Self {
+            paths: HashMap::new(),
+
             data_stack: Vec::new(),
             frame_stack: Vec::new(),
 
@@ -61,11 +69,16 @@ impl InterpreterContext {
 
         alloc_func(self, Func::Native("write".into(), std_lib::write));
 
-        alloc_func(self, Func::Native("eq".into(), std_lib::eq));
         alloc_func(self, Func::Native("+".into(), std_lib::add));
         alloc_func(self, Func::Native("-".into(), std_lib::sub));
         alloc_func(self, Func::Native("*".into(), std_lib::mul));
         alloc_func(self, Func::Native("/".into(), std_lib::div));
+
+        alloc_func(self, Func::Native("eq".into(), std_lib::eq));
+        alloc_func(self, Func::Native("<".into(), std_lib::lt));
+        alloc_func(self, Func::Native("<=".into(), std_lib::lteq));
+        alloc_func(self, Func::Native(">".into(), std_lib::gt));
+        alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
     }
 
     pub fn stack_trace(&self) {
@@ -268,6 +281,7 @@ pub enum InterpreterErrorKind {
     CannotAllocateNull,
     ExpectedList,
     InvalidFuncParamNames,
+    OperationExpectedNParams { expected: usize, received: usize },
 }
 
 impl FormattedError for InterpreterError {
@@ -279,7 +293,6 @@ impl FormattedError for InterpreterError {
                 println!("{}", ErrorWriter::underline_span(span));
             }
         } else {
-
         }
         Ok(())
     }
@@ -294,20 +307,26 @@ impl std::fmt::Display for InterpreterErrorKind {
             InterpreterErrorKind::InvalidIdentifier(s) => {
                 temp = format!("{s} is not a known identifier");
                 &temp
-            },
+            }
             InterpreterErrorKind::EmptyStack => "Stack is empty, cannot pop Stack frame",
             InterpreterErrorKind::EmptyDataStack => "Data Stack is empty, cannot pop Data Stack",
             InterpreterErrorKind::InvalidOperator(op) => {
                 temp = format!("{op} is not an operator");
                 &temp
-            },
+            }
             InterpreterErrorKind::ExpectedResult => "Expected Result?", //TODO:
             InterpreterErrorKind::StackIndexOutOfRange => "Pointer exceeds limit of stack",
             InterpreterErrorKind::PointerDoesNotExist => "Pointer does not.", //TODO:
             InterpreterErrorKind::FailedOperation => "Operation arguments not valid",
-            InterpreterErrorKind::CannotAllocateNull => "Cannot allocate whatever the fuck this is to the heap",
+            InterpreterErrorKind::CannotAllocateNull => {
+                "Cannot allocate whatever the fuck this is to the heap" //TODO:
+            }
             InterpreterErrorKind::ExpectedList => "Operation expected a List",
             InterpreterErrorKind::InvalidFuncParamNames => "Invalid Param names",
+            InterpreterErrorKind::OperationExpectedNParams { expected, received } => {
+                temp = format!("Operation expected {expected} parameters received {received}");
+                &temp
+            }
         };
         write!(f, "{s}")
     }

@@ -54,7 +54,7 @@ impl std::fmt::Display for HeapObject {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum ObjectRef<'a> {
     Null,
     Value(Literal),

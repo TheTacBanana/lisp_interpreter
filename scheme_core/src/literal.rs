@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, Sub};
 
 use crate::{lexer::literal::NumericLiteral, parser::token::ParserTokenKind};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub enum Literal {
     Character(char),
     Numeric(Numeric),
