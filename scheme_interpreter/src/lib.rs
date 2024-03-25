@@ -4,12 +4,11 @@ use std::{collections::HashMap, error::Error, path::PathBuf};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
+use file::ParsedFile;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
 use scheme_core::{
-    error::{ErrorWriter, FormattedError},
-    parser::ast::AST,
-    token::span::Span,
+    error::{ErrorWriter, FormattedError}, file::SchemeFile, parser::ast::AST, token::span::Span
 };
 
 use crate::func::Func;
@@ -18,13 +17,14 @@ pub mod alloc;
 pub mod deref;
 pub mod frame;
 pub mod func;
+pub mod file;
 pub mod object;
 pub mod std_lib;
 
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 pub struct InterpreterContext {
-    paths: HashMap<PathBuf, Vec<AST>>,
+    paths: HashMap<PathBuf, >,
 
     frame_stack: Vec<Frame>,
     data_stack: Vec<StackObject>,
@@ -34,6 +34,10 @@ pub struct InterpreterContext {
 }
 
 impl InterpreterContext {
+    pub fn from_files(files: Vec<SchemeFile>) -> Self {
+
+    }
+
     pub fn new() -> Self {
         Self {
             paths: HashMap::new(),
@@ -289,7 +293,7 @@ impl FormattedError for InterpreterError {
         println!("{}", self.kind);
         if let Some(total_span) = self.span {
             for span in ew.span_to_lines(total_span).unwrap() {
-                println!("{}", ew.get_line(span.start.line).unwrap());
+                println!("{}", ew.get_line(span.file_id, span.start.line).unwrap());
                 println!("{}", ErrorWriter::underline_span(span));
             }
         } else {

@@ -4,29 +4,33 @@ use crate::rules::Rules;
 /// Inclusive of both sides [start-end]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
+    pub file_id: usize,
     pub start: LineCol,
     pub end: LineCol,
 }
 
 impl Span {
     /// Span for first character in a new file
-    pub const fn zero() -> Self {
+    pub const fn zero(file_id: usize) -> Self {
         Self {
+            file_id,
             start: LineCol { line: 0, col: 0 },
             end: LineCol { line: 0, col: 0 },
         }
     }
 
     /// Span for a single character
-    pub const fn single(pos: LineCol) -> Self {
+    pub const fn single(file_id: usize, pos: LineCol) -> Self {
         Self {
+            file_id,
             start: pos,
             end: pos,
         }
     }
 
-    pub const fn from_to_on(from : usize, to: usize, on: usize) -> Self {
+    pub const fn from_to_on(file_id: usize, from : usize, to: usize, on: usize) -> Self {
         Self {
+            file_id,
             start: LineCol { line: on, col: from },
             end: LineCol { line: on, col: to },
         }
@@ -42,7 +46,9 @@ impl Span {
     }
 
     pub fn max_span(&self, other: Span) -> Span {
+        assert!(self.file_id == other.file_id);
         Span {
+            file_id: self.file_id,
             start: self.start.min(other.start),
             end: self.end.max(other.end),
         }

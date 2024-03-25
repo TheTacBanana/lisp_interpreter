@@ -29,8 +29,8 @@ fn main() {
             .read_line(&mut str_in)
             .expect("Failed to take input");
 
-        let error_writer = ErrorWriter::from_string(&str_in);
-        let lexer_result = Lexer::from_string(str_in.clone()).lex();
+        let error_writer = ErrorWriter::new(&str_in);
+        let lexer_result = Lexer::new(str_in.clone()).lex();
         let _ = error_writer.report_errors(lexer_result.errors);
         if verbose {
             println!(

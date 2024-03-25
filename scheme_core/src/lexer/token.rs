@@ -89,7 +89,7 @@ impl FormattedError for LexerError {
     fn fmt_err(&self, ew: &crate::error::ErrorWriter) -> std::fmt::Result {
         println!("Error: {}", self.kind);
         for span in ew.span_to_lines(self.span).unwrap() {
-            println!("{}", ew.get_line(span.start.line).unwrap());
+            println!("{}", ew.get_line(span.file_id, span.start.line).unwrap());
             println!("{}", ErrorWriter::underline_span(span));
         }
         Ok(())

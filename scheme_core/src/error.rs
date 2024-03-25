@@ -1,23 +1,22 @@
 use crate::token::span::Span;
 
 pub struct ErrorWriter {
-    pub lines: Vec<String>,
+    pub files: Vec<Vec<String>>,
 }
 
 impl ErrorWriter {
-    pub fn from_string(string: &str) -> Self {
+    pub fn new(mut files: Vec<&str>) -> Self {
         Self {
-            lines: string
-                .to_string()
-                .lines()
-                .map(|x| x.into())
-                .collect::<Vec<_>>(),
+            files: files
+                .drain(..)
+                .map(|f| f.lines().map(|x| x.into()).collect::<Vec<_>>())
+                .collect(),
         }
     }
 
-    pub fn report_errors(&self, errors : Vec<impl FormattedError>) -> Result<(), ()>{
+    pub fn report_errors(&self, errors: Vec<impl FormattedError>) -> Result<(), ()> {
         if errors.is_empty() {
-            return Ok(())
+            return Ok(());
         }
         for e in errors {
             e.fmt_err(self).unwrap();
@@ -26,12 +25,12 @@ impl ErrorWriter {
         Err(())
     }
 
-    pub fn get_line(&self, l: usize) -> Option<&String> {
-        self.lines.get(l)
+    pub fn get_line(&self, file: usize, l: usize) -> Option<&String> {
+        self.files.get(file).and_then(|f| f.get(l))
     }
 
-    pub fn get_line_length(&self, l: usize) -> Option<usize> {
-        self.lines.get(l).map(|l| l.len())
+    pub fn get_line_length(&self, file: usize, l: usize) -> Option<usize> {
+        self.files.get(file).and_then(|f| f.get(l).map(|l| l.len()))
     }
 
     pub fn span_to_lines(&self, span: Span) -> Option<Vec<Span>> {
@@ -45,22 +44,24 @@ impl ErrorWriter {
 
             let first = lines.next().unwrap();
             spans.push(Span::from_to_on(
+                span.file_id,
                 span.start.col,
-                self.get_line_length(first)?,
+                self.get_line_length(span.file_id, first)?,
                 first,
             ));
 
             for _ in 0..(lines.len() - 1) {
                 let line = lines.next().unwrap();
-                spans.push(Span::from_to_on(0, self.get_line_length(line)?, line))
+                spans.push(Span::from_to_on(
+                    span.file_id,
+                    0,
+                    self.get_line_length(span.file_id, line)?,
+                    line,
+                ))
             }
 
             let last = lines.next().unwrap();
-            spans.push(Span::from_to_on(
-                0,
-                span.end.col,
-                last,
-            ));
+            spans.push(Span::from_to_on(span.file_id, 0, span.end.col, last));
 
             Some(spans)
         }

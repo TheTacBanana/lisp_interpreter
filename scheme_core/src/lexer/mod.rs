@@ -14,6 +14,7 @@ pub mod literal;
 pub mod token;
 
 pub struct Lexer {
+    file_id: usize,
     whole_file: String,
     file: VecDeque<char>,
     tokens: Vec<LexerToken>,
@@ -22,9 +23,10 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn from_string(contents: String) -> Self {
+    pub fn new(file_id: usize, contents: &str) -> Self {
         Self {
-            whole_file: contents.clone(),
+            file_id,
+            whole_file: contents.to_string(),
             file: contents.chars().collect(),
             tokens: Vec::default(),
             errors: Vec::default(),
@@ -211,7 +213,7 @@ impl Lexer {
     fn start_new_token(&self, kind: LexerTokenKind) -> LexerToken {
         LexerToken {
             kind,
-            span: Span::single(self.file_pos),
+            span: Span::single(self.file_id, self.file_pos),
         }
     }
 }
@@ -236,7 +238,7 @@ mod test {
         ($test:ident, $s:expr, $tokens:expr) => {
             #[test]
             fn $test() {
-                let mut result = Lexer::from_string($s.to_string()).lex();
+                let mut result = Lexer::new(0, $s).lex();
                 println!("{:?}", result.tokens);
                 assert_eq!(result.tokens.len(), $tokens.len());
                 assert_eq!(result.errors.len(), 0);
@@ -251,7 +253,7 @@ mod test {
         ($test:ident, $s:expr, $tokens:expr, $errors:expr) => {
             #[test]
             fn $test() {
-                let mut result = Lexer::from_string($s.to_string()).lex();
+                let mut result = Lexer::new(0, $s).lex();
                 assert_eq!(result.tokens.len(), $tokens.len());
                 assert_eq!(result.errors.len(), $errors.len());
                 result

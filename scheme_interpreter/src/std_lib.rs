@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
-
+    Ok(())
 }
 
 pub fn if_macro(
