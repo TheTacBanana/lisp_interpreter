@@ -85,6 +85,8 @@ impl Lexer {
                 match (cur_token.inner(), ch) {
                     (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
 
+                    (Token::Symbol(_), Some(s)) if Rules::symbol(s) => State::Consume,
+
                     (Token::Comment(_), Some(n)) if Rules::line_break(n) => State::ConsumeAndBreak,
                     (Token::Comment(_), Some(_)) => State::Consume,
 

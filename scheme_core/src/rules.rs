@@ -94,6 +94,13 @@ impl Rules {
         }
     }
 
+    pub fn symbol(ch: char) -> bool {
+        match ch {
+           '#' | '\'' | '`' | ',' | '.' => true,
+            _ => false,
+        }
+    }
+
     pub fn start_comment(ch: char) -> bool {
         ch == ';'
     }

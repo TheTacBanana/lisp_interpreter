@@ -11,7 +11,7 @@ pub type ParserToken = Token<ParserTokenKind>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParserTokenKind {
-    Symbol(char),
+    Symbol(String),
     Identifier(String),
     Literal(Literal),
     String(String),

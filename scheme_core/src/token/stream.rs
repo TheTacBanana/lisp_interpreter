@@ -42,10 +42,10 @@ impl TokenStreamExt for TokenStream {
             let token = token.inner();
             let top = stack.last().unwrap();
             match (top, token) {
-                ('(', Token::Symbol(')')) => {
+                ('(', Token::Symbol(s)) if s == ")" => {
                     stack.pop();
                 }
-                (_, Token::Symbol(b @ '(')) => stack.push(*b),
+                (_, Token::Symbol(s)) if s == "(" => stack.push(s.chars().next().unwrap()),
                 (_, _) => (),
             }
 

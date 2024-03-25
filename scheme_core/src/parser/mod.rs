@@ -53,7 +53,7 @@ impl Parser {
                         }
                         Some(ParserTokenKind::String(s).into())
                     }
-                    LexerTokenKind::Symbol(s) => Some(ParserTokenKind::Symbol(s.chars().next()?)),
+                    LexerTokenKind::Symbol(s) => Some(ParserTokenKind::Symbol(s)),
                     _ => None,
                 };
 
@@ -108,8 +108,8 @@ impl Parser {
             TK::String(s) => Ok(AST::StringLiteral(s, span)),
 
             // New block
-            b @ TK::Symbol('(') => {
-                let index = match stream.opposite(b) {
+            TK::Symbol(s) if &s == "(" => {
+                let index = match stream.opposite(TK::Symbol(s)) {
                     Ok(index) => index,
                     Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
                 };
@@ -121,7 +121,9 @@ impl Parser {
             }
 
             // Quote
-            TK::Symbol('\'') => Self::parse_quoted(stream, span),
+            TK::Symbol(s) if &s == "'" => Self::parse_quoted(stream, span),
+
+            TK::Symbol(s) if &s == ".." => Ok(AST::Identifier("..".to_string(), span)),
 
             _ => Err(ParserError::new(ParseTokenError::NoItemFound, span)),
         }
@@ -151,8 +153,8 @@ impl Parser {
             quote_span,
         ))?;
         match kind {
-            b @ ParserTokenKind::Symbol('(') => {
-                let index = match stream.opposite(b) {
+            ParserTokenKind::Symbol(s) if &s == "(" => {
+                let index = match stream.opposite(ParserTokenKind::Symbol(s)) {
                     Ok(index) => index,
                     Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
                 };
