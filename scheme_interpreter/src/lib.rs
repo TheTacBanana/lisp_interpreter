@@ -1,14 +1,16 @@
 #![feature(let_chains)]
 
-use std::{collections::HashMap, error::Error, path::PathBuf};
+use std::{cell::RefCell, collections::HashMap, error::Error, path::PathBuf};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
-use file::ParsedFile;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
 use scheme_core::{
-    error::{ErrorWriter, FormattedError}, file::SchemeFile, parser::ast::AST, token::span::Span
+    error::{ErrorWriter, FormattedError},
+    file::SchemeFile,
+    parser::ast::AST,
+    token::span::Span,
 };
 
 use crate::func::Func;
@@ -17,14 +19,14 @@ pub mod alloc;
 pub mod deref;
 pub mod frame;
 pub mod func;
-pub mod file;
 pub mod object;
 pub mod std_lib;
 
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 pub struct InterpreterContext {
-    paths: HashMap<PathBuf, >,
+    file_paths: HashMap<PathBuf, usize>,
+    files: Vec<SchemeFile>,
 
     frame_stack: Vec<Frame>,
     data_stack: Vec<StackObject>,
@@ -34,20 +36,37 @@ pub struct InterpreterContext {
 }
 
 impl InterpreterContext {
-    pub fn from_files(files: Vec<SchemeFile>) -> Self {
-
-    }
-
-    pub fn new() -> Self {
+    pub fn from_files(mut files: Vec<SchemeFile>) -> Self {
+        let paths = files
+            .iter()
+            .map(|x| (x.path.clone(), x.file_id))
+            .collect::<Vec<_>>();
         Self {
-            paths: HashMap::new(),
-
+            file_paths: HashMap::from_iter(paths),
+            files,
             data_stack: Vec::new(),
             frame_stack: Vec::new(),
-
             ident_mapping: HashMap::default(),
             heap: Vec::new(),
         }
+    }
+
+    pub fn start(&mut self, ew: &ErrorWriter) -> InterpreterResult<()> {
+        for ast in &self.files[0]
+            .ast
+            .iter()
+            .map(|ast| {
+                let ptr: *const AST = ast;
+                ptr
+            })
+            .collect::<Vec<_>>()
+        {
+            if let Err(err) = self.interpret(unsafe { ast.as_ref().unwrap() }) {
+                let _ = ew.report_errors(vec![err]);
+                break;
+            }
+        }
+        Ok(())
     }
 
     pub fn with_std(&mut self) {
@@ -62,6 +81,8 @@ impl InterpreterContext {
             .clone();
             HeapObject::Func(f).heap_alloc_named(&name, int).unwrap();
         }
+
+        alloc_func(self, Func::TokenNative("import".into(), std_lib::import));
 
         alloc_func(self, Func::TokenNative("define".into(), std_lib::define));
         alloc_func(self, Func::TokenNative("lambda".into(), std_lib::lambda));
@@ -286,6 +307,7 @@ pub enum InterpreterErrorKind {
     ExpectedList,
     InvalidFuncParamNames,
     OperationExpectedNParams { expected: usize, received: usize },
+    ImportError { method: String, from: String },
 }
 
 impl FormattedError for InterpreterError {
@@ -330,6 +352,9 @@ impl std::fmt::Display for InterpreterErrorKind {
             InterpreterErrorKind::OperationExpectedNParams { expected, received } => {
                 temp = format!("Operation expected {expected} parameters received {received}");
                 &temp
+            }
+            InterpreterErrorKind::ImportError { method, from } => {
+                todo!()
             }
         };
         write!(f, "{s}")

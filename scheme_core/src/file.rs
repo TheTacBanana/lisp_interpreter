@@ -1,16 +1,10 @@
+use std::path::PathBuf;
+
 use crate::parser::ast::AST;
 
-
+#[derive(Debug, Clone)]
 pub struct SchemeFile {
-    file_id: usize,
-    ast: Vec<AST>
-}
-
-impl SchemeFile {
-    pub fn new(file_id: usize, ast: Vec<AST>) -> Self {
-        Self {
-            file_id,
-            ast,
-        }
-    }
+    pub file_id: usize,
+    pub path: PathBuf,
+    pub ast: Vec<AST>
 }

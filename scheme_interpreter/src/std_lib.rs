@@ -1,4 +1,6 @@
-use scheme_core::{literal::Literal, parser::ast::AST};
+use std::path::PathBuf;
+
+use scheme_core::{file, literal::Literal, parser::ast::AST};
 
 use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},
@@ -9,6 +11,48 @@ use crate::{
 };
 
 pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+    if ast.len() <= 2 {
+        //TODO:
+        // return Err(InterpreterError::spanned(kind, span));
+    }
+    let cur_file_id = ast[0].span().file_id;
+
+    let mut path = Vec::new();
+    for ident in ast.drain(..) {
+        let name = match ident {
+            AST::Identifier(name, _) => name,
+            e => todo!(), //Err(InterpreterError::spanned(InterpreterErrorKind::ImportError, e.span()))?
+        };
+        path.push(name.clone());
+    }
+
+    let mut file_path = interpreter.files[cur_file_id].path.clone();
+    file_path.pop();
+    let method_name = path.pop().unwrap();
+    file_path = path
+        .iter()
+        .fold(file_path, |l, r| {
+            l.join(r)
+        });
+    file_path.set_extension("scm");
+
+    println!("{:?} {:?}", interpreter.file_paths, file_path);
+
+    let file_id = interpreter.file_paths.get(&file_path).unwrap(); //TODO:
+    let file = interpreter.files.get(*file_id).unwrap();
+
+    for ast in file
+        .ast
+        .iter()
+        .map(|ast| {
+            let ptr: *const AST = ast;
+            ptr
+        })
+        .collect::<Vec<_>>()
+    {
+        interpreter.interpret(unsafe { ast.as_ref().unwrap() })?
+    }
+
     Ok(())
 }
 
