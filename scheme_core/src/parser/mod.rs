@@ -1,4 +1,5 @@
 use core::panic;
+use std::collections::VecDeque;
 
 use crate::{
     lexer::token::{LexerToken, LexerTokenKind},
@@ -87,12 +88,27 @@ impl Parser {
                     };
                 }
             }
-            ParserTokenKind::Identifier(_) => {
+            ParserTokenKind::Identifier(_) => { //TODO: Make this less fucked
                 let total_span = self.tokens.total_span().unwrap();
-                match Self::parse_block(self.tokens, total_span) {
-                    Ok(item) => items.push(item),
-                    Err(e) => errors.push(e),
+                let mut things = VecDeque::new();
+                while !self.tokens.is_empty() {
+                    match Self::parse_item(&mut self.tokens) {
+                        Ok(item) => things.push_back(item),
+                        Err(e) => errors.push(e),
+                    };
                 }
+                let len = things.len();
+                let mut drain = things.drain(..);
+                if len == 1 {
+                    items.push(drain.next().unwrap())
+                } else if len == 0 {
+                    todo!()
+                } else {
+                    let op = drain.next().unwrap();
+                    let body = drain.collect::<Vec<_>>();
+                    items.push(AST::Operation(Box::new(op), body, total_span))
+                }
+
             }
         };
         ParseResult { ast: items, errors }

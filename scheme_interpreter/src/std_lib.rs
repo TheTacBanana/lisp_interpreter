@@ -129,6 +129,15 @@ pub fn if_macro(
 }
 
 pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+    if ast.len() > 2 || ast.len() == 0 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams {
+                expected: 2,
+                received: ast.len(),
+            },
+        ));
+    }
+
     let mut ast = ast.drain(..);
     match ast.next().unwrap() {
         // Define a value
@@ -174,7 +183,6 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             )))
         }
     };
-    assert!(ast.len() == 0);
     Ok(())
 }
 
