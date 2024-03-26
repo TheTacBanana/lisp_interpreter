@@ -131,7 +131,7 @@ impl Parser {
 
     fn parse_block(mut stream: TokenStream, span: Span) -> Result<AST, ParserError> {
         if stream.is_empty() {
-            Err(ParserError::new(ParseTokenError::EmptyBlock, span))?;
+            return Ok(AST::EmptyList(span));
         }
 
         let item = Self::parse_item(&mut stream)?;

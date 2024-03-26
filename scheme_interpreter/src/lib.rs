@@ -199,7 +199,7 @@ impl InterpreterContext {
             Func::Defined(_, param_names, ast) => {
                 if body.len() != param_names.len() {
                     return Err(InterpreterError::spanned(
-                        InterpreterErrorKind::OperationExpectedNParams {
+                        InterpreterErrorKind::ExpectedNParams {
                             expected: param_names.len(),
                             received: body.len(),
                         },
@@ -326,7 +326,7 @@ pub enum InterpreterErrorKind {
     CantResolveIdentifier(String),
     IsNotParamName(String),
     CannotCall(String),
-    OperationExpectedNParams { expected: usize, received: usize },
+    ExpectedNParams { expected: usize, received: usize },
 
     NullDeref,
     EmptyStack,
@@ -392,7 +392,7 @@ impl std::fmt::Display for InterpreterErrorKind {
             }
             InterpreterErrorKind::ExpectedList => "Operation expected a List",
             InterpreterErrorKind::InvalidFuncParamNames => "Invalid Param names",
-            InterpreterErrorKind::OperationExpectedNParams { expected, received } => {
+            InterpreterErrorKind::ExpectedNParams { expected, received } => {
                 temp = format!("Operation expected {expected} parameters received {received}");
                 &temp
             }

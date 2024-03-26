@@ -92,7 +92,7 @@ pub fn if_macro(
 ) -> InterpreterResult<*const AST> {
     if ast.len() != 3 {
         Err(InterpreterError::spanned(
-            InterpreterErrorKind::OperationExpectedNParams {
+            InterpreterErrorKind::ExpectedNParams {
                 expected: 3,
                 received: ast.len(),
             },
@@ -179,6 +179,15 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
 }
 
 pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+    if ast.len() > 2 || ast.len() == 0 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams {
+                expected: 2,
+                received: ast.len(),
+            },
+        ));
+    }
+
     let mut ast = ast.drain(..);
     let param_names = match ast.next().unwrap() {
         AST::Identifier(ident, _) => {
@@ -206,6 +215,7 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
 
             param_names
         }
+        AST::EmptyList(_) => Vec::new(),
         e => {
             return Err(InterpreterError::new(InterpreterErrorKind::CannotCall(
                 e.to_string(),
@@ -221,8 +231,6 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     .stack_alloc(interpreter)?;
 
     interpreter.push_data(obj);
-
-    assert!(ast.len() == 0);
 
     Ok(())
 }
@@ -310,7 +318,15 @@ cmp_op!(gt, l, r, l > r);
 cmp_op!(gteq, l, r, l >= r);
 
 pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    assert!(n == 1);
+    if n != 1 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams {
+                expected: 1,
+                received: n,
+            },
+        ));
+    }
+
     let list = interpreter.pop_data()?;
     match list {
         StackObject::Value(_) => interpreter.push_data(list),
@@ -347,7 +363,15 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
 }
 
 pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    assert!(n == 1);
+    if n != 1 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams {
+                expected: 1,
+                received: n,
+            },
+        ));
+    }
+
     let list = interpreter.pop_data()?;
     match list {
         StackObject::Value(_) => {
