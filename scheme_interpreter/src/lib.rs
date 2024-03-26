@@ -153,73 +153,83 @@ impl InterpreterContext {
     }
 
     pub fn interpret_operation(&mut self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
-        if let AST::Identifier(ident, span) = op {
-            let pointer = self.resolve_identifier(&ident, *span)?;
-
-            let ObjectRef::Func(func) = pointer.deref(self)? else {
-                return Err(InterpreterError::spanned(
-                    InterpreterErrorKind::PointerIsNotFn,
+        let (pointer, span) = if let AST::Identifier(ident, span) = op {
+            (self.resolve_identifier(&ident, *span)?, *span)
+        } else if let AST::Operation(inner_op, inner_body, span) = op {
+            self.interpret_operation(inner_op, inner_body.iter().collect())?;
+            match self.pop_data()? {
+                StackObject::Ref(p) => (p, *span),
+                StackObject::Value(v) => return Err(InterpreterError::spanned(
+                    InterpreterErrorKind::CannotCall(v.to_string()),
                     *span,
-                ));
-            };
-
-            let func_name = func.to_string();
-            let func: *const Func = func;
-            let frame = Frame::new(self.frame_stack.len(), func_name);
-            self.frame_stack.push(frame);
-
-            let param_count = body.len();
-            match unsafe { func.as_ref().unwrap() } {
-                Func::Native(_, native_func) => {
-                    for param in body.drain(..) {
-                        self.interpret(&param)?
-                    }
-                    native_func(self, param_count)?
-                }
-                Func::Defined(_, param_names, ast) => {
-                    if body.len() != param_names.len() {
-                        return Err(InterpreterError::spanned(
-                            InterpreterErrorKind::OperationExpectedNParams {
-                                expected: param_names.len(),
-                                received: body.len(),
-                            },
-                            op.span(),
-                        ));
-                    }
-
-                    for param in body.drain(..) {
-                        self.interpret(&param)?
-                    }
-
-                    let mut params = Vec::new();
-                    for _ in 0..param_count {
-                        params.push(self.pop_data()?);
-                    }
-                    params.reverse();
-
-                    let frame = self.top_frame()?;
-                    param_names.iter().zip(params).for_each(|(name, obj)| {
-                        frame.insert_local(&name, obj);
-                    });
-
-                    self.interpret(ast)?
-                }
-                Func::TokenNative(_, native_special_func) => {
-                    let params = body.drain(..).collect::<Vec<_>>();
-                    native_special_func(self, params)?;
-                }
-                Func::Macro(_, macro_func) => {
-                    let params = body.drain(..).collect::<Vec<_>>();
-                    let ast = macro_func(self, params)?;
-                    self.interpret(unsafe { ast.as_ref().unwrap() })?;
-                }
+                )),
             }
-            self.pop_frame()?;
         } else {
             return Err(InterpreterError::new(
                 InterpreterErrorKind::InvalidOperator(op.clone()),
             ));
+        };
+
+        let deref_pointer = pointer.deref(self)?;
+        let ObjectRef::Func(func) = deref_pointer else {
+            return Err(InterpreterError::spanned(
+                InterpreterErrorKind::CannotCall(deref_pointer.to_string()),
+                span,
+            ));
+        };
+
+        let func_name = func.to_string();
+        let func: *const Func = func;
+        let frame = Frame::new(self.frame_stack.len(), func_name);
+        self.frame_stack.push(frame);
+
+        let param_count = body.len();
+        match unsafe { func.as_ref().unwrap() } {
+            Func::Native(_, native_func) => {
+                for param in body.drain(..) {
+                    self.interpret(&param)?
+                }
+                native_func(self, param_count)?
+            }
+            Func::Defined(_, param_names, ast) => {
+                if body.len() != param_names.len() {
+                    return Err(InterpreterError::spanned(
+                        InterpreterErrorKind::OperationExpectedNParams {
+                            expected: param_names.len(),
+                            received: body.len(),
+                        },
+                        op.span(),
+                    ));
+                }
+
+                for param in body.drain(..) {
+                    self.interpret(&param)?
+                }
+
+                let mut params = Vec::new();
+                for _ in 0..param_count {
+                    params.push(self.pop_data()?);
+                }
+                params.reverse();
+
+                let frame = self.top_frame()?;
+                param_names.iter().zip(params).for_each(|(name, obj)| {
+                    frame.insert_local(&name, obj);
+                });
+
+                self.interpret(ast)?
+            }
+            Func::TokenNative(_, native_special_func) => {
+                let params = body.drain(..).collect::<Vec<_>>();
+                native_special_func(self, params)?;
+            }
+            Func::Macro(_, macro_func) => {
+                let params = body.drain(..).collect::<Vec<_>>();
+                let ast = macro_func(self, params)?;
+                self.interpret(unsafe { ast.as_ref().unwrap() })?;
+            }
         }
+        self.pop_frame()?;
 
         Ok(())
     }
@@ -310,11 +320,11 @@ pub enum InterpreterErrorKind {
     // Identifier Errors
     InvalidIdentifier(String),
     InvalidOperator(AST),
+    CannotCall(String),
     OperationExpectedNParams { expected: usize, received: usize },
 
     NullDeref,
     EmptyStack,
-    PointerIsNotFn,
     EmptyDataStack,
     ExpectedResult,
     StackIndexOutOfRange,
@@ -354,7 +364,10 @@ impl std::fmt::Display for InterpreterErrorKind {
         let temp;
         let s = match self {
             InterpreterErrorKind::NullDeref => "Null Pointer Dereferenced",
-            InterpreterErrorKind::PointerIsNotFn => "Value is not a function",
+            InterpreterErrorKind::CannotCall(s) => {
+                temp = format!("Cannot call '{s}', it is not a function");
+                &temp
+            }
             InterpreterErrorKind::InvalidIdentifier(s) => {
                 temp = format!("{s} is not a known identifier");
                 &temp
