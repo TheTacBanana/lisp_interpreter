@@ -2,6 +2,8 @@ use std::{env, fs::File, io::Read, path::PathBuf};
 
 use scheme_core::{file, literal::Literal, parser::ast::AST, LexerParser};
 
+use scheme_core::token::span::TotalSpan;
+
 use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},
     deref::InterpreterDeref,
@@ -11,16 +13,22 @@ use crate::{
 };
 
 pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
-    if ast.len() <= 2 {
-        //TODO:
+    if ast.len() == 0 {
+        return Err(InterpreterError::new(InterpreterErrorKind::EmptyImport));
     }
     let cur_file_id = ast[0].span().file_id;
+    let total_span = ast.total_span().unwrap();
 
     let mut path = Vec::new();
     for ident in ast.drain(..) {
         let name = match ident {
             AST::Identifier(name, _) => name,
-            e => todo!(), //Err(InterpreterError::spanned(InterpreterErrorKind::ImportError, e.span()))?
+            e => {
+                return Err(InterpreterError::spanned(
+                    InterpreterErrorKind::InvalidInImport,
+                    e.span(),
+                ))?
+            }
         };
         path.push(name.clone());
     }
@@ -29,28 +37,41 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         .error_writer
         .id_to_path
         .get(&cur_file_id)
-        .map(|p|{
+        .map(|p| {
             let mut p = p.clone();
             p.pop();
             p
         })
         .unwrap_or(env::current_dir().unwrap())
         .clone();
+
     file_path = path.iter().fold(file_path, |l, r| l.join(r));
     file_path.set_extension("scm");
 
     interpreter.error_writer.already_loaded(&file_path);
 
-    let mut file = File::open(file_path.clone()).unwrap();
+    let mut file = File::open(file_path.clone()).map_err(|_| {
+        InterpreterError::spanned(
+            InterpreterErrorKind::ImportNotFound(file_path.to_str().unwrap().to_string()),
+            total_span,
+        )
+    })?;
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
-    let id = interpreter.error_writer.add_file(file_path, contents.clone());
+    let id = interpreter
+        .error_writer
+        .add_file(file_path, contents.clone());
 
-    let ast = LexerParser::from_string(id, contents, &interpreter.error_writer).unwrap();
+    let ast = LexerParser::from_string(id, contents, &interpreter.error_writer).map_err(|_| {
+        InterpreterError::spanned(
+            InterpreterErrorKind::ErrorInParsingImport,
+            total_span,
+        )
+    })?;
 
     for node in ast {
-        interpreter.interpret(&node)?
+        interpreter.interpret(&node)?;
     }
 
     Ok(())

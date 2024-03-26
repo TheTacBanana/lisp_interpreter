@@ -1,4 +1,4 @@
-use crate::rules::Rules;
+use crate::{parser::ast::AST, rules::Rules};
 
 /// Describes the Position of a Token in a File
 /// Inclusive of both sides [start-end]
@@ -76,5 +76,16 @@ impl LineCol {
                 self.col += 1;
             }
         }
+    }
+}
+
+pub trait TotalSpan {
+    fn total_span(&self) -> Option<Span>;
+}
+
+
+impl TotalSpan for Vec<&AST> {
+    fn total_span(&self) -> Option<Span> {
+        self.iter().map(|a| a.span()).reduce(|l, r| l.max_span(r))
     }
 }

@@ -10,13 +10,6 @@ use scheme_interpreter::{
 };
 
 fn main() {
-    let verbose = std::env::args().any(|s| s.to_uppercase() == "V");
-    if verbose {
-        println!("Scheme REPL (Verbose):");
-    } else {
-        println!("Scheme REPL:");
-    }
-
     let mut context = InterpreterContext::new(ErrorWriter::empty());
     loop {
         print!("> ");

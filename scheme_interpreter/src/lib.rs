@@ -51,8 +51,8 @@ impl InterpreterContext {
         for node in ast{
             if let Err(err) = self.interpret(&node) {
                 let _ = self.error_writer.report_errors(vec![err]);
-                self.stack_trace();
-                self.heap_dump();
+                // self.stack_trace();
+                // self.heap_dump();
                 break;
             }
         }
@@ -278,16 +278,24 @@ impl InterpreterError {
             kind,
         }
     }
+
+    pub fn add_if_not_spanned(mut self, span: Span) -> Self{
+        self.span.get_or_insert(span);
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InterpreterErrorKind {
-    NullDeref,
-    PointerIsNotFn,
+    // Identifier Errors
     InvalidIdentifier(String),
-    EmptyStack,
-    EmptyDataStack,
     InvalidOperator(AST),
+    OperationExpectedNParams { expected: usize, received: usize },
+
+    NullDeref,
+    EmptyStack,
+    PointerIsNotFn,
+    EmptyDataStack,
     ExpectedResult,
     StackIndexOutOfRange,
     PointerDoesNotExist,
@@ -295,14 +303,22 @@ pub enum InterpreterErrorKind {
     CannotAllocateNull,
     ExpectedList,
     InvalidFuncParamNames,
-    OperationExpectedNParams { expected: usize, received: usize },
-    ImportError { method: String, from: String },
+
+    // Import Errors
+    EmptyImport,
+    InvalidInImport,
+    ImportNotFound(String),
+    ErrorInParsingImport,
 }
 
 impl FormattedError for InterpreterError {
     fn fmt_err(&self, ew: &ErrorWriter) -> std::fmt::Result {
         if let Some(total_span) = self.span {
-            println!("Error: {} at {}", self.kind, ew.link_file(total_span).unwrap());
+            if let Some(file_link) = ew.link_file(total_span) {
+                println!("Error: {} at {}", self.kind, file_link);
+            } else {
+                println!("Error: {}", self.kind)
+            }
             for span in ew.span_to_lines(total_span).unwrap() {
                 println!("{}", ew.get_line(span.file_id, span.start.line).unwrap());
                 println!("{}", ErrorWriter::underline_span(span));
@@ -342,9 +358,14 @@ impl std::fmt::Display for InterpreterErrorKind {
                 temp = format!("Operation expected {expected} parameters received {received}");
                 &temp
             }
-            InterpreterErrorKind::ImportError { method, from } => {
-                todo!()
-            }
+            InterpreterErrorKind::EmptyImport => "Import is empty",
+            InterpreterErrorKind::InvalidInImport => "Invalid in import",
+            InterpreterErrorKind::ImportNotFound(s) => {
+                temp = format!("Import '{s}' cannot be found");
+                &temp
+            },
+            InterpreterErrorKind::ErrorInParsingImport => "Parse error in import",
+
         };
         write!(f, "{s}")
     }
