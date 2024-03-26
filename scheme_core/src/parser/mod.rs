@@ -1,4 +1,3 @@
-use core::panic;
 use std::collections::VecDeque;
 
 use crate::{
@@ -49,10 +48,10 @@ impl Parser {
                     LexerTokenKind::String(s) => {
                         let mut s = s[1..].to_string();
 
-                        if s.len() >= 1 && s.ends_with("\"") {
+                        if !s.is_empty() && s.ends_with('"') {
                             s.pop();
                         }
-                        Some(ParserTokenKind::String(s).into())
+                        Some(ParserTokenKind::String(s))
                     }
                     LexerTokenKind::Symbol(s) => Some(ParserTokenKind::Symbol(s)),
                     _ => None,
@@ -192,7 +191,7 @@ impl Parser {
         if items.is_empty() {
             Ok(AST::EmptyList(span))
         } else {
-            Ok(AST::list_from_vec(items.into()))
+            Ok(AST::list_from_vec(items))
         }
     }
 }

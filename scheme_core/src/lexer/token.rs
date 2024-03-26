@@ -1,4 +1,4 @@
-use crate::{error::{ErrorWriter, FormattedError}, token::{span::Span, ErrorToken, Token, TokenKind}};
+use crate::{error::{ErrorWriter, FormattedError}, token::{span::Span, ErrorToken, Token}};
 use std::error::Error;
 
 use super::literal::NumericLiteral;

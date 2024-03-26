@@ -116,8 +116,8 @@ impl ErrorWriter {
         let padding = 0..span.start.col;
         let width = span.start.col..=span.end.col;
         let padding = padding.fold(String::new(), |l, _r| l + " ");
-        let out = width.fold(padding, |l, _r| l + "^");
-        out
+        
+        width.fold(padding, |l, _r| l + "^")
     }
 }
 

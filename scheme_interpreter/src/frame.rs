@@ -40,10 +40,10 @@ impl Frame {
             .locals
             .iter()
             .enumerate()
-            .find_map(|(i, o)| o.is_none().then(|| i))
-            .unwrap_or_else(|| self.locals.len());
+            .find_map(|(i, o)| o.is_none().then_some(i))
+            .unwrap_or(self.locals.len());
         if id >= self.locals.len() {
-            let extend = (self.locals.len()..=id + 1).into_iter().map(|_| None);
+            let extend = (self.locals.len()..=id + 1).map(|_| None);
             self.locals.extend(extend);
         }
         self.ident_mapping.insert(ident.to_string(), id);

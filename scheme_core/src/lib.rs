@@ -1,6 +1,6 @@
 use error::ErrorWriter;
 use lexer::Lexer;
-use parser::{ast::AST, ParseResult, Parser};
+use parser::{ast::AST, Parser};
 
 pub mod rules;
 pub mod lexer;
@@ -24,9 +24,9 @@ impl LexerParser {
 
         let parser_result = parser.parse();
         if error_writer.report_errors(parser_result.errors).is_err() {
-            return Err(())
+            Err(())
         } else {
-            return Ok(parser_result.ast);
+            Ok(parser_result.ast)
         }
     }
 

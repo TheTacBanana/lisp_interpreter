@@ -30,9 +30,9 @@ impl Literal {
     }
 }
 
-impl Into<ParserTokenKind> for Literal {
-    fn into(self) -> ParserTokenKind {
-        ParserTokenKind::Literal(self)
+impl From<Literal> for ParserTokenKind {
+    fn from(val: Literal) -> Self {
+        ParserTokenKind::Literal(val)
     }
 }
 
@@ -121,8 +121,8 @@ impl Div<Numeric> for Numeric {
         match (self, rhs) {
             (Numeric::Int(l), Numeric::Int(r)) => Numeric::Float(l as f32 / r as f32),
             (Numeric::Int(l), Numeric::Float(r)) => Numeric::Float(l as f32 / r),
-            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l as f32 / r as f32),
-            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l as f32 / r as f32),
+            (Numeric::Float(l), Numeric::Int(r)) => Numeric::Float(l / r as f32),
+            (Numeric::Float(l), Numeric::Float(r)) => Numeric::Float(l / r),
         }
     }
 }
@@ -133,7 +133,7 @@ impl PartialOrd<Numeric> for Numeric {
             (Numeric::Int(l), Numeric::Int(r)) => Some(l.cmp(r)),
             (Numeric::Int(l), Numeric::Float(r)) => Some((*l as f32).total_cmp(r)),
             (Numeric::Float(l), Numeric::Int(r)) => Some(l.total_cmp(&(*r as f32))),
-            (Numeric::Float(l), Numeric::Float(r)) => Some(l.total_cmp(&r)),
+            (Numeric::Float(l), Numeric::Float(r)) => Some(l.total_cmp(r)),
         }
     }
 }
@@ -148,7 +148,7 @@ impl Ord for Numeric {
             (Numeric::Int(l), Numeric::Int(r)) => l.cmp(r),
             (Numeric::Int(l), Numeric::Float(r)) => (*l as f32).total_cmp(r),
             (Numeric::Float(l), Numeric::Int(r)) => l.total_cmp(&(*r as f32)),
-            (Numeric::Float(l), Numeric::Float(r)) => l.total_cmp(&r),
+            (Numeric::Float(l), Numeric::Float(r)) => l.total_cmp(r),
         }
     }
 }

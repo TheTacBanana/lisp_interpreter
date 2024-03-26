@@ -40,20 +40,20 @@ impl AST {
             let span = v.span();
             head = AST::List(Box::new(v), Box::new(head), span);
         }
-        return head;
+        head
     }
 }
 
 impl std::fmt::Display for AST {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let var_name = match self {
+        
+        match self {
             AST::Identifier(ident, _) => write!(f, "{ident}"),
             AST::Literal(lit, _) => write!(f, "{lit}"),
             AST::Operation(ident, params, _) => write!(f, "{ident} {params:?}"),
             AST::List(head, tail, _) => write!(f, "{head}:{tail}"),
             AST::StringLiteral(s, _) => write!(f, "{s}"),
             AST::EmptyList(_) => write!(f, "()"),
-        };
-        var_name
+        }
     }
 }

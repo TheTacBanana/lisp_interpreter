@@ -9,7 +9,7 @@ use scheme_interpreter::InterpreterContext;
 
 pub fn main() -> Result<()> {
     let file_names = std::env::args().skip(1).collect::<Vec<_>>();
-    if file_names.len() == 0 {
+    if file_names.is_empty() {
         println!("Error: File not specified");
         return Ok(());
     }

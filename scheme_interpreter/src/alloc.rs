@@ -50,12 +50,11 @@ impl InterpreterHeapAlloc for HeapObject {
             .heap
             .iter()
             .enumerate()
-            .find_map(|(i, o)| o.is_none().then(|| i))
-            .unwrap_or_else(|| interpreter.heap.len());
+            .find_map(|(i, o)| o.is_none().then_some(i))
+            .unwrap_or(interpreter.heap.len());
 
         if id >= interpreter.heap.len() {
             let extend = ((interpreter.heap.len())..=id + 1)
-                .into_iter()
                 .map(|_| None);
             interpreter.heap.extend(extend);
         }

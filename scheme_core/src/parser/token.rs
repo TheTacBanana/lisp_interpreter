@@ -1,10 +1,9 @@
 use std::{
     error::Error,
-    ops::{Add, Div, Mul, Sub},
 };
 
 use crate::{
-    error::{ErrorWriter, FormattedError}, lexer::literal::NumericLiteral, literal::Literal, token::{span::Span, Token, TokenKind}
+    error::{ErrorWriter, FormattedError}, literal::Literal, token::{span::Span, Token, TokenKind}
 };
 
 pub type ParserToken = Token<ParserTokenKind>;

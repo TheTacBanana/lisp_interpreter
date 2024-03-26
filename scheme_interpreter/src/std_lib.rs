@@ -23,7 +23,7 @@ pub fn heap_dump(interpreter: &mut InterpreterContext, n: usize) -> InterpreterR
 }
 
 pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
-    if ast.len() == 0 {
+    if ast.is_empty() {
         return Err(InterpreterError::new(InterpreterErrorKind::EmptyImport));
     }
     let cur_file_id = ast[0].span().file_id;
@@ -114,7 +114,7 @@ pub fn if_macro(
     let mut drain = ast.drain(..);
     let cond = drain.next().unwrap();
 
-    interpreter.interpret(&cond)?;
+    interpreter.interpret(cond)?;
     let cond = interpreter.pop_data()?;
     let result = match cond.deref(interpreter)? {
         ObjectRef::Value(Literal::Boolean(false)) => false,
@@ -124,12 +124,12 @@ pub fn if_macro(
     if result {
         Ok(drain.next().unwrap())
     } else {
-        Ok(drain.skip(1).next().unwrap())
+        Ok(drain.nth(1).unwrap())
     }
 }
 
 pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
-    if ast.len() > 2 || ast.len() == 0 {
+    if ast.len() > 2 || ast.is_empty() {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
                 expected: 2,
@@ -142,7 +142,7 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     match ast.next().unwrap() {
         // Define a value
         AST::Identifier(ident, _) => {
-            interpreter.interpret(&ast.next().unwrap())?;
+            interpreter.interpret(ast.next().unwrap())?;
             let p = interpreter.pop_data()?;
             p.heap_alloc_named(ident, interpreter)?;
         }
@@ -175,7 +175,7 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
                 param_names,
                 ast.next().unwrap().clone(),
             ))
-            .heap_alloc_named(&op_name, interpreter)?;
+            .heap_alloc_named(op_name, interpreter)?;
         }
         e => {
             return Err(InterpreterError::new(InterpreterErrorKind::CannotCall(
@@ -187,7 +187,7 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
 }
 
 pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
-    if ast.len() > 2 || ast.len() == 0 {
+    if ast.len() > 2 || ast.is_empty() {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
                 expected: 2,
@@ -210,7 +210,7 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             };
 
             let AST::Identifier(op_name, _) = &**op_name else {
-                return build_err(&op_name);
+                return build_err(op_name);
             };
 
             let mut param_names = vec![op_name.clone()];

@@ -1,11 +1,10 @@
 use std::io::Write;
 
 use scheme_core::{
-    error::ErrorWriter, file, lexer::{self, Lexer}, parser::Parser, LexerParser
+    error::ErrorWriter, LexerParser
 };
 use scheme_interpreter::{
     deref::InterpreterDeref,
-    object::{ObjectRef, StackObject},
     InterpreterContext,
 };
 

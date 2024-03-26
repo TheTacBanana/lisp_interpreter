@@ -1,6 +1,6 @@
 #![feature(let_chains)]
 
-use std::{cell::RefCell, collections::HashMap, error::Error, path::PathBuf};
+use std::{collections::HashMap, error::Error};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
@@ -8,9 +8,8 @@ use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
 use scheme_core::{
     error::{ErrorWriter, FormattedError},
-    file::SchemeFile,
     parser::ast::AST,
-    token::span::{Span, TotalSpan},
+    token::span::{Span},
 };
 
 use crate::func::Func;
@@ -131,7 +130,7 @@ impl InterpreterContext {
                 return self.interpret_operation(op, params.iter().collect())
             }
             AST::Identifier(ident, span) => {
-                let p = self.resolve_identifier(&ident, *span)?;
+                let p = self.resolve_identifier(ident, *span)?;
                 self.push_data(StackObject::Ref(p));
             }
             AST::Literal(lit, _) => self.push_data(StackObject::Value(*lit)),
@@ -154,7 +153,7 @@ impl InterpreterContext {
 
     pub fn interpret_operation(&mut self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
         let (pointer, span) = match op {
-            AST::Identifier(ident, span) => (self.resolve_identifier(&ident, *span)?, *span),
+            AST::Identifier(ident, span) => (self.resolve_identifier(ident, *span)?, *span),
             AST::Operation(inner_op, inner_body, span) => {
                 self.interpret_operation(inner_op, inner_body.iter().collect())?;
                 match self.pop_data()? {
@@ -192,7 +191,7 @@ impl InterpreterContext {
         match unsafe { func.as_ref().unwrap() } {
             Func::Native(_, native_func) => {
                 for param in body.drain(..) {
-                    self.interpret(&param)?
+                    self.interpret(param)?
                 }
                 native_func(self, param_count)?
             }
@@ -208,7 +207,7 @@ impl InterpreterContext {
                 }
 
                 for param in body.drain(..) {
-                    self.interpret(&param)?
+                    self.interpret(param)?
                 }
 
                 let mut params = Vec::new();
@@ -219,17 +218,17 @@ impl InterpreterContext {
 
                 let frame = self.top_frame()?;
                 param_names.iter().zip(params).for_each(|(name, obj)| {
-                    frame.insert_local(&name, obj);
+                    frame.insert_local(name, obj);
                 });
 
                 self.interpret(ast)?
             }
             Func::TokenNative(_, native_special_func) => {
-                let params = body.drain(..).collect::<Vec<_>>();
+                let params = std::mem::take(&mut body);
                 native_special_func(self, params)?;
             }
             Func::Macro(_, macro_func) => {
-                let params = body.drain(..).collect::<Vec<_>>();
+                let params = std::mem::take(&mut body);
                 let ast = macro_func(self, params)?;
                 self.interpret(unsafe { ast.as_ref().unwrap() })?;
             }
@@ -277,10 +276,10 @@ impl InterpreterContext {
             return Ok(*ptr);
         }
 
-        return Err(InterpreterError::spanned(
+        Err(InterpreterError::spanned(
             InterpreterErrorKind::CantResolveIdentifier(ident.to_string()),
             span,
-        ));
+        ))
     }
 }
 
@@ -358,8 +357,7 @@ impl FormattedError for InterpreterError {
                 println!("{}", ew.get_line(span.file_id, span.start.line).unwrap());
                 println!("{}", ErrorWriter::underline_span(span));
             }
-        } else {
-        }
+        } 
         Ok(())
     }
 }

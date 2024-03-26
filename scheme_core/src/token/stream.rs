@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::parser::token::ParserTokenKind;
 
-use super::{span::Span, Token, TokenKind};
+use super::{span::Span, Token};
 
 pub type TokenStream = VecDeque<Token<ParserTokenKind>>;
 
@@ -30,7 +30,7 @@ pub trait TokenStreamExt: Sized {
 
 impl TokenStreamExt for TokenStream {
     fn find(&self, f: impl Fn(&Token<ParserTokenKind>) -> bool) -> Option<usize> {
-        self.iter().position(|t| f(t))
+        self.iter().position(f)
     }
 
     // TODO: Fix brackets hhh
@@ -53,7 +53,7 @@ impl TokenStreamExt for TokenStream {
                 return Ok(i);
             }
         }
-        return Err(());
+        Err(())
     }
 
     fn peek_front(&self) -> Option<&ParserTokenKind> {
