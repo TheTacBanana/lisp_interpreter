@@ -10,7 +10,7 @@ use scheme_core::{
     error::{ErrorWriter, FormattedError},
     file::SchemeFile,
     parser::ast::AST,
-    token::span::Span,
+    token::span::{Span, TotalSpan},
 };
 
 use crate::func::Func;
@@ -48,7 +48,7 @@ impl InterpreterContext {
     }
 
     pub fn start(&mut self, ast: Vec<AST>) {
-        for node in ast{
+        for node in ast {
             if let Err(err) = self.interpret(&node) {
                 let _ = self.error_writer.report_errors(vec![err]);
                 // self.stack_trace();
@@ -72,6 +72,12 @@ impl InterpreterContext {
         }
 
         alloc_func(self, Func::TokenNative("import".into(), std_lib::import));
+
+        alloc_func(
+            self,
+            Func::Native("stack-trace".into(), std_lib::stack_trace),
+        );
+        alloc_func(self, Func::Native("heap-dump".into(), std_lib::heap_dump));
 
         alloc_func(self, Func::TokenNative("define".into(), std_lib::define));
         alloc_func(self, Func::TokenNative("lambda".into(), std_lib::lambda));
@@ -171,6 +177,16 @@ impl InterpreterContext {
                     native_func(self, param_count)?
                 }
                 Func::Defined(_, param_names, ast) => {
+                    if body.len() != param_names.len() {
+                        return Err(InterpreterError::spanned(
+                            InterpreterErrorKind::OperationExpectedNParams {
+                                expected: param_names.len(),
+                                received: body.len(),
+                            },
+                            op.span(),
+                        ));
+                    }
+
                     for param in body.drain(..) {
                         self.interpret(&param)?
                     }
@@ -272,6 +288,10 @@ impl InterpreterError {
         Self { span: None, kind }
     }
 
+    pub fn optional_span(kind: InterpreterErrorKind, span: Option<Span>) -> Self {
+        Self { span, kind }
+    }
+
     pub fn spanned(kind: InterpreterErrorKind, span: Span) -> Self {
         Self {
             span: Some(span),
@@ -279,7 +299,7 @@ impl InterpreterError {
         }
     }
 
-    pub fn add_if_not_spanned(mut self, span: Span) -> Self{
+    pub fn add_if_not_spanned(mut self, span: Span) -> Self {
         self.span.get_or_insert(span);
         self
     }
@@ -363,9 +383,8 @@ impl std::fmt::Display for InterpreterErrorKind {
             InterpreterErrorKind::ImportNotFound(s) => {
                 temp = format!("Import '{s}' cannot be found");
                 &temp
-            },
+            }
             InterpreterErrorKind::ErrorInParsingImport => "Parse error in import",
-
         };
         write!(f, "{s}")
     }

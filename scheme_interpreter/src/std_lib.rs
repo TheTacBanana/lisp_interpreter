@@ -1,6 +1,6 @@
-use std::{env, fs::File, io::Read, path::PathBuf};
+use std::{env, fs::File, io::Read};
 
-use scheme_core::{file, literal::Literal, parser::ast::AST, LexerParser};
+use scheme_core::{literal::Literal, parser::ast::AST, LexerParser};
 
 use scheme_core::token::span::TotalSpan;
 
@@ -11,6 +11,16 @@ use crate::{
     object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject},
     InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
+
+pub fn stack_trace(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    interpreter.stack_trace();
+    Ok(())
+}
+
+pub fn heap_dump(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    interpreter.heap_dump();
+    Ok(())
+}
 
 pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     if ast.len() == 0 {
@@ -64,10 +74,7 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         .add_file(file_path, contents.clone());
 
     let ast = LexerParser::from_string(id, contents, &interpreter.error_writer).map_err(|_| {
-        InterpreterError::spanned(
-            InterpreterErrorKind::ErrorInParsingImport,
-            total_span,
-        )
+        InterpreterError::spanned(InterpreterErrorKind::ErrorInParsingImport, total_span)
     })?;
 
     for node in ast {

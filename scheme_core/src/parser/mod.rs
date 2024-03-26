@@ -135,9 +135,6 @@ impl Parser {
         }
 
         let item = Self::parse_item(&mut stream)?;
-        if stream.is_empty() {
-            return Ok(item);
-        }
 
         let mut items = Vec::new();
         while !stream.is_empty() {
