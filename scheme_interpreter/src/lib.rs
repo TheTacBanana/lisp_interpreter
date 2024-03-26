@@ -153,21 +153,26 @@ impl InterpreterContext {
     }
 
     pub fn interpret_operation(&mut self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
-        let (pointer, span) = if let AST::Identifier(ident, span) = op {
-            (self.resolve_identifier(&ident, *span)?, *span)
-        } else if let AST::Operation(inner_op, inner_body, span) = op {
-            self.interpret_operation(inner_op, inner_body.iter().collect())?;
-            match self.pop_data()? {
-                StackObject::Ref(p) => (p, *span),
-                StackObject::Value(v) => return Err(InterpreterError::spanned(
-                    InterpreterErrorKind::CannotCall(v.to_string()),
-                    *span,
-                )),
+        let (pointer, span) = match op {
+            AST::Identifier(ident, span) => (self.resolve_identifier(&ident, *span)?, *span),
+            AST::Operation(inner_op, inner_body, span) => {
+                self.interpret_operation(inner_op, inner_body.iter().collect())?;
+                match self.pop_data()? {
+                    StackObject::Ref(p) => (p, *span),
+                    StackObject::Value(v) => {
+                        return Err(InterpreterError::spanned(
+                            InterpreterErrorKind::CannotCall(v.to_string()),
+                            *span,
+                        ))
+                    }
+                }
             }
-        } else {
-            return Err(InterpreterError::new(
-                InterpreterErrorKind::InvalidOperator(op.clone()),
-            ));
+            v => {
+                return Err(InterpreterError::spanned(
+                    InterpreterErrorKind::CannotCall(v.to_string()),
+                    v.span(),
+                ))
+            }
         };
 
         let deref_pointer = pointer.deref(self)?;
@@ -273,7 +278,7 @@ impl InterpreterContext {
         }
 
         return Err(InterpreterError::spanned(
-            InterpreterErrorKind::InvalidIdentifier(ident.to_string()),
+            InterpreterErrorKind::CantResolveIdentifier(ident.to_string()),
             span,
         ));
     }
@@ -318,8 +323,8 @@ impl InterpreterError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum InterpreterErrorKind {
     // Identifier Errors
-    InvalidIdentifier(String),
-    InvalidOperator(AST),
+    CantResolveIdentifier(String),
+    IsNotParamName(String),
     CannotCall(String),
     OperationExpectedNParams { expected: usize, received: usize },
 
@@ -368,16 +373,16 @@ impl std::fmt::Display for InterpreterErrorKind {
                 temp = format!("Cannot call '{s}', it is not a function");
                 &temp
             }
-            InterpreterErrorKind::InvalidIdentifier(s) => {
+            InterpreterErrorKind::IsNotParamName(s) => {
+                temp = format!("'{s}' is not an ident");
+                &temp
+            },
+            InterpreterErrorKind::CantResolveIdentifier(s) => {
                 temp = format!("{s} is not a known identifier");
                 &temp
             }
             InterpreterErrorKind::EmptyStack => "Stack is empty, cannot pop Stack frame",
             InterpreterErrorKind::EmptyDataStack => "Data Stack is empty, cannot pop Data Stack",
-            InterpreterErrorKind::InvalidOperator(op) => {
-                temp = format!("{op} is not an operator");
-                &temp
-            }
             InterpreterErrorKind::ExpectedResult => "Expected Result?", //TODO:
             InterpreterErrorKind::StackIndexOutOfRange => "Pointer exceeds limit of stack",
             InterpreterErrorKind::PointerDoesNotExist => "Pointer does not.", //TODO:

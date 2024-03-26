@@ -58,7 +58,9 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     file_path = path.iter().fold(file_path, |l, r| l.join(r));
     file_path.set_extension("scm");
 
-    interpreter.error_writer.already_loaded(&file_path);
+    if interpreter.error_writer.already_loaded(&file_path) {
+        return Ok(());
+    }
 
     let mut file = File::open(file_path.clone()).map_err(|_| {
         InterpreterError::spanned(
@@ -138,9 +140,9 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         // Define a function
         AST::Operation(op_name, op_params, _) => {
             let AST::Identifier(op_name, _) = &**op_name else {
-                return Err(InterpreterError::new(
-                    InterpreterErrorKind::InvalidOperator((**op_name).clone()),
-                ));
+                return Err(InterpreterError::new(InterpreterErrorKind::CannotCall(
+                    op_name.to_string(),
+                )));
             };
 
             let mut param_names = Vec::new();
@@ -167,9 +169,9 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             .heap_alloc_named(&op_name, interpreter)?;
         }
         e => {
-            return Err(InterpreterError::new(
-                InterpreterErrorKind::InvalidOperator((*e).clone()),
-            ))
+            return Err(InterpreterError::new(InterpreterErrorKind::CannotCall(
+                e.to_string(),
+            )))
         }
     };
     assert!(ast.len() == 0);
@@ -183,24 +185,31 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             vec![ident.clone()]
         }
         AST::Operation(op_name, op_params, _) => {
+            let build_err = |ast: &AST| -> Result<(), InterpreterError> {
+                Err(InterpreterError::spanned(
+                    InterpreterErrorKind::IsNotParamName(ast.to_string()),
+                    ast.span(),
+                ))
+            };
+
             let AST::Identifier(op_name, _) = &**op_name else {
-                panic!("Expected Identifier {op_name}")
+                return build_err(&op_name);
             };
 
             let mut param_names = vec![op_name.clone()];
             for p in op_params.iter() {
                 match p {
                     AST::Identifier(ident, _) => param_names.push(ident.clone()),
-                    e => panic!("Expected Identifier received {e}"),
+                    e => build_err(e)?,
                 }
             }
 
             param_names
         }
         e => {
-            return Err(InterpreterError::new(
-                InterpreterErrorKind::InvalidOperator((*e).clone()),
-            ))
+            return Err(InterpreterError::new(InterpreterErrorKind::CannotCall(
+                e.to_string(),
+            )))
         }
     };
 
