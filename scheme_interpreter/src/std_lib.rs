@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::{env, fs::File, io::Read, path::PathBuf};
 
-use scheme_core::{file, literal::Literal, parser::ast::AST};
+use scheme_core::{file, literal::Literal, parser::ast::AST, LexerParser};
 
 use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},
@@ -13,7 +13,6 @@ use crate::{
 pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     if ast.len() <= 2 {
         //TODO:
-        // return Err(InterpreterError::spanned(kind, span));
     }
     let cur_file_id = ast[0].span().file_id;
 
@@ -26,31 +25,32 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         path.push(name.clone());
     }
 
-    let mut file_path = interpreter.files[cur_file_id].path.clone();
-    file_path.pop();
-    let method_name = path.pop().unwrap();
-    file_path = path
-        .iter()
-        .fold(file_path, |l, r| {
-            l.join(r)
-        });
+    let mut file_path = interpreter
+        .error_writer
+        .id_to_path
+        .get(&cur_file_id)
+        .map(|p|{
+            let mut p = p.clone();
+            p.pop();
+            p
+        })
+        .unwrap_or(env::current_dir().unwrap())
+        .clone();
+    file_path = path.iter().fold(file_path, |l, r| l.join(r));
     file_path.set_extension("scm");
 
-    println!("{:?} {:?}", interpreter.file_paths, file_path);
+    interpreter.error_writer.already_loaded(&file_path);
 
-    let file_id = interpreter.file_paths.get(&file_path).unwrap(); //TODO:
-    let file = interpreter.files.get(*file_id).unwrap();
+    let mut file = File::open(file_path.clone()).unwrap();
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).unwrap();
 
-    for ast in file
-        .ast
-        .iter()
-        .map(|ast| {
-            let ptr: *const AST = ast;
-            ptr
-        })
-        .collect::<Vec<_>>()
-    {
-        interpreter.interpret(unsafe { ast.as_ref().unwrap() })?
+    let id = interpreter.error_writer.add_file(file_path, contents.clone());
+
+    let ast = LexerParser::from_string(id, contents, &interpreter.error_writer).unwrap();
+
+    for node in ast {
+        interpreter.interpret(&node)?
     }
 
     Ok(())

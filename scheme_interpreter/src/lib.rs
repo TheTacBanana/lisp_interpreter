@@ -25,48 +25,37 @@ pub mod std_lib;
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 pub struct InterpreterContext {
-    file_paths: HashMap<PathBuf, usize>,
-    files: Vec<SchemeFile>,
+    pub error_writer: ErrorWriter,
 
-    frame_stack: Vec<Frame>,
-    data_stack: Vec<StackObject>,
+    pub frame_stack: Vec<Frame>,
+    pub data_stack: Vec<StackObject>,
 
-    ident_mapping: HashMap<String, ObjectPointer>,
-    heap: Vec<Option<HeapObject>>,
+    pub ident_mapping: HashMap<String, ObjectPointer>,
+    pub heap: Vec<Option<HeapObject>>,
 }
 
 impl InterpreterContext {
-    pub fn from_files(mut files: Vec<SchemeFile>) -> Self {
-        let paths = files
-            .iter()
-            .map(|x| (x.path.clone(), x.file_id))
-            .collect::<Vec<_>>();
-        Self {
-            file_paths: HashMap::from_iter(paths),
-            files,
-            data_stack: Vec::new(),
+    pub fn new(error_writer: ErrorWriter) -> Self {
+        let mut s = Self {
+            error_writer,
             frame_stack: Vec::new(),
-            ident_mapping: HashMap::default(),
+            data_stack: Vec::new(),
+            ident_mapping: HashMap::new(),
             heap: Vec::new(),
-        }
+        };
+        s.with_std();
+        s
     }
 
-    pub fn start(&mut self, ew: &ErrorWriter) -> InterpreterResult<()> {
-        for ast in &self.files[0]
-            .ast
-            .iter()
-            .map(|ast| {
-                let ptr: *const AST = ast;
-                ptr
-            })
-            .collect::<Vec<_>>()
-        {
-            if let Err(err) = self.interpret(unsafe { ast.as_ref().unwrap() }) {
-                let _ = ew.report_errors(vec![err]);
+    pub fn start(&mut self, ast: Vec<AST>) {
+        for node in ast{
+            if let Err(err) = self.interpret(&node) {
+                let _ = self.error_writer.report_errors(vec![err]);
+                self.stack_trace();
+                self.heap_dump();
                 break;
             }
         }
-        Ok(())
     }
 
     pub fn with_std(&mut self) {
@@ -312,8 +301,8 @@ pub enum InterpreterErrorKind {
 
 impl FormattedError for InterpreterError {
     fn fmt_err(&self, ew: &ErrorWriter) -> std::fmt::Result {
-        println!("{}", self.kind);
         if let Some(total_span) = self.span {
+            println!("Error: {} at {}", self.kind, ew.link_file(total_span).unwrap());
             for span in ew.span_to_lines(total_span).unwrap() {
                 println!("{}", ew.get_line(span.file_id, span.start.line).unwrap());
                 println!("{}", ErrorWriter::underline_span(span));

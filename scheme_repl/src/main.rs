@@ -1,9 +1,7 @@
 use std::io::Write;
 
 use scheme_core::{
-    error::ErrorWriter,
-    lexer::{self, Lexer},
-    parser::Parser,
+    error::ErrorWriter, file, lexer::{self, Lexer}, parser::Parser, LexerParser
 };
 use scheme_interpreter::{
     deref::InterpreterDeref,
@@ -19,8 +17,7 @@ fn main() {
         println!("Scheme REPL:");
     }
 
-    let mut interpreter = InterpreterContext::new();
-    interpreter.with_std();
+    let mut context = InterpreterContext::new(ErrorWriter::empty());
     loop {
         print!("> ");
         std::io::stdout().flush().unwrap();
@@ -29,41 +26,13 @@ fn main() {
             .read_line(&mut str_in)
             .expect("Failed to take input");
 
-        let error_writer = ErrorWriter::new(&str_in);
-        let lexer_result = Lexer::new(str_in.clone()).lex();
-        let _ = error_writer.report_errors(lexer_result.errors);
-        if verbose {
-            println!(
-                "{:?}",
-                lexer_result
-                    .tokens
-                    .iter()
-                    .map(|t| t.inner())
-                    .collect::<Vec<_>>()
-            );
-        }
+        let file_id = context.error_writer.load_string(str_in.clone());
+        let Ok(ast) = LexerParser::from_string(file_id, str_in, &context.error_writer) else { continue; };
 
-        let Some(parser) = Parser::new(lexer_result.tokens) else {
-            continue;
-        };
-        let parser_result = parser.parse();
-        if error_writer.report_errors(parser_result.errors).is_err() {
-            continue;
-        } else if verbose {
-            println!("{:?}", parser_result.ast);
-        }
-
-        for ast in parser_result.ast {
-            if let Err(err) = interpreter.interpret(&ast) {
-                interpreter.stack_trace();
-                interpreter.heap_dump();
-                let _ = error_writer.report_errors(vec![err]);
-            }
-
-            if let Ok(p) = interpreter.pop_data() {
-                let obj = p.deref(&interpreter).unwrap();
-                println!("{}", obj);
-            }
+        context.start(ast);
+        if let Ok(p) = context.pop_data() {
+            let obj = p.deref(&context).unwrap();
+            println!("{}", obj);
         }
     }
 }
