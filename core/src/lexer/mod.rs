@@ -102,13 +102,14 @@ impl Lexer {
                     }
                     (Token::String(_), Some(_)) => State::Consume,
 
-                    (_, Some(c)) if Rules::line_break(c) => {
+                    (Token::Symbol(_), Some(s)) if Rules::symbol(s) => State::Consume,
+
+                    (_, Some(c)) if Rules::delimiter(c) => {
                         State::Break
                     }
 
                     (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
 
-                    (Token::Symbol(_), Some(s)) if Rules::symbol(s) => State::Consume,
 
                     (Token::Comment(_), Some(n)) if Rules::line_break(n) => State::ConsumeAndBreak,
                     (Token::Comment(_), Some(_)) => State::Consume,
@@ -121,7 +122,6 @@ impl Lexer {
                     (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => {
                         State::Consume
                     }
-
 
                     (
                         Token::Numeric(NL::Bin(s) | NL::Oct(s) | NL::Dec(s) | NL::Hex(s)),
