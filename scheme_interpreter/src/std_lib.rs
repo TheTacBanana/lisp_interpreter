@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::{env, fs::File, io::Read};
 
 use scheme_core::{literal::Literal, parser::ast::AST, LexerParser};
@@ -344,22 +345,22 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
             }
             ObjectPointer::Stack(i, p) => {
                 interpreter.push_data(
-                    *interpreter
+                    interpreter
                         .frame_stack
                         .get(i)
                         .and_then(|f| f.get_local_by_index(p))
-                        .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?,
+                        .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?.clone(),
                 );
             }
             ObjectPointer::Heap(p) => {
-                match interpreter
+                match &interpreter
                     .heap
-                    .get(p)
+                    .get(*p.deref())
                     .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?.0
                 {
                     HeapObject::List(h, _) => {
-                        let p = h.stack_alloc(interpreter)?;
+                        let p = h.clone().stack_alloc(interpreter)?;
                         interpreter.push_data(p);
                     }
                     _ => todo!(),
@@ -391,14 +392,14 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
             }
             ObjectPointer::Stack(_, _) => todo!(),
             ObjectPointer::Heap(p) => {
-                match interpreter
+                match &interpreter
                     .heap
-                    .get(p)
+                    .get(*p.deref())
                     .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?.0
                 {
                     HeapObject::List(_, t) => {
-                        let p = t.stack_alloc(interpreter)?;
+                        let p = t.clone().stack_alloc(interpreter)?;
                         interpreter.push_data(p);
                     }
                     _ => todo!(),

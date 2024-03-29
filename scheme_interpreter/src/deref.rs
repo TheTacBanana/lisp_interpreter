@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::{
     object::{HeapObject, ObjectPointer, ObjectRef, StackObject}, InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult
 };
@@ -17,10 +19,10 @@ impl InterpreterDeref for ObjectPointer {
             ObjectPointer::Heap(p) => {
                 let obj = interpreter
                     .heap
-                    .get(*p)
+                    .get(*p.deref())
                     .and_then(|x| x.as_ref())
                     .ok_or(InterpreterError::new(InterpreterErrorKind::PointerDoesNotExist))?;
-                obj.deref(interpreter)
+                obj.0.deref(interpreter)
             }
             ObjectPointer::Stack(frame, index) => {
                 let frame = interpreter

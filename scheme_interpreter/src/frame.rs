@@ -57,7 +57,7 @@ impl std::fmt::Display for Frame {
         writeln!(f, "Frame[{}]: {}", self.stack_index, self.name)?;
 
         for (ident, i) in self.ident_mapping.iter() {
-            writeln!(f, "{ident}: {}", self.locals.get(*i).unwrap().unwrap())?
+            writeln!(f, "{ident}: {}", self.locals.get(*i).unwrap().clone().unwrap())?
         }
         Ok(())
     }

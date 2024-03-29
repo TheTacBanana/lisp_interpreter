@@ -1,6 +1,6 @@
 #![feature(let_chains)]
 
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, ops::Deref, sync::Arc};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
@@ -30,7 +30,7 @@ pub struct InterpreterContext {
     pub data_stack: Vec<StackObject>,
 
     pub ident_mapping: HashMap<String, ObjectPointer>,
-    pub heap: Vec<Option<HeapObject>>,
+    pub heap: Vec<Option<(HeapObject, Arc<usize>)>>,
 }
 
 impl InterpreterContext {
@@ -115,8 +115,8 @@ impl InterpreterContext {
             .enumerate()
             .filter_map(|(i, o)| o.as_ref().map(|o| (i, o)))
         {
-            if let Ok(item) = o.deref(self) {
-                println!("[{i}] {}", item)
+            if let (refs, Ok(item))= (Arc::strong_count(&o.1), o.0.deref(self)) {
+                println!("[{i}] {} {refs}", item)
             } else {
                 println!("[{i}] Deref Failed {o:?}")
             }
@@ -273,7 +273,7 @@ impl InterpreterContext {
         }
 
         if let Some(ptr) = self.ident_mapping.get(ident) {
-            return Ok(*ptr);
+            return Ok(ptr.clone());
         }
 
         Err(InterpreterError::spanned(
@@ -357,7 +357,7 @@ impl FormattedError for InterpreterError {
                 println!("{}", ew.get_line(span.file_id, span.start.line).unwrap());
                 println!("{}", ErrorWriter::underline_span(span));
             }
-        } 
+        }
         Ok(())
     }
 }

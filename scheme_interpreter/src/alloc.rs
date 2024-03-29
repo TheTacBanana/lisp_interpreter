@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use crate::{
-    object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject}, InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult
+    object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject},
+    InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
 pub trait InterpreterStackAlloc: Sized {
@@ -9,7 +12,9 @@ pub trait InterpreterStackAlloc: Sized {
 impl InterpreterStackAlloc for ObjectPointer {
     fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
         match self {
-            ObjectPointer::Null => Err(InterpreterError::new(InterpreterErrorKind::CannotAllocateNull)),
+            ObjectPointer::Null => Err(InterpreterError::new(
+                InterpreterErrorKind::CannotAllocateNull,
+            )),
             p => Ok(StackObject::Ref(p)),
         }
     }
@@ -19,7 +24,7 @@ impl InterpreterStackAlloc for UnallocatedObject {
     fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
         match self {
             UnallocatedObject::Value(v) => Ok(StackObject::Value(v)),
-            o => Ok(StackObject::Ref(o.heap_alloc(interpreter)?))
+            o => Ok(StackObject::Ref(o.heap_alloc(interpreter)?)),
         }
     }
 }
@@ -37,7 +42,9 @@ pub trait InterpreterHeapAlloc: Sized {
         interpreter: &mut InterpreterContext,
     ) -> InterpreterResult<ObjectPointer> {
         let p = self.heap_alloc(interpreter)?;
-        interpreter.ident_mapping.insert(ident.to_string(), p);
+        interpreter
+            .ident_mapping
+            .insert(ident.to_string(), p.clone());
         Ok(p)
     }
 
@@ -50,17 +57,27 @@ impl InterpreterHeapAlloc for HeapObject {
             .heap
             .iter()
             .enumerate()
-            .find_map(|(i, o)| o.is_none().then_some(i))
+            .find_map(|(i, o)| {
+                match o {
+                    None => return Some(i),
+                    Some((_, handle)) => {
+                        if Arc::strong_count(handle) == 1 {
+                            return Some(i);
+                        }
+                    }
+                }
+                None
+            })
             .unwrap_or(interpreter.heap.len());
 
         if id >= interpreter.heap.len() {
-            let extend = ((interpreter.heap.len())..=id + 1)
-                .map(|_| None);
+            let extend = ((interpreter.heap.len())..=id + 1).map(|_| None);
             interpreter.heap.extend(extend);
         }
 
-        let _ = interpreter.heap.get_mut(id).as_mut().unwrap().insert(self);
-        Ok(ObjectPointer::Heap(id))
+        let mut heap_index = interpreter.heap.get_mut(id);
+        let (_, handle) = heap_index.as_mut().unwrap().insert((self, Arc::new(id)));
+        Ok(ObjectPointer::Heap(handle.clone()))
     }
 }
 
@@ -84,7 +101,11 @@ impl InterpreterHeapAlloc for UnallocatedObject {
                 let tail = tail.heap_alloc(interpreter)?;
                 HeapObject::List(head, tail)
             }
-            UnallocatedObject::Null => return Err(InterpreterError::new(InterpreterErrorKind::CannotAllocateNull)),
+            UnallocatedObject::Null => {
+                return Err(InterpreterError::new(
+                    InterpreterErrorKind::CannotAllocateNull,
+                ))
+            }
         }
         .heap_alloc(interpreter)
     }

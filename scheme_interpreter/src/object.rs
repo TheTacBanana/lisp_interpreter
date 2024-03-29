@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use scheme_core::literal::Literal;
 
 use crate::func::Func;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StackObject {
     Value(Literal),
     Ref(ObjectPointer),
@@ -17,12 +19,12 @@ impl std::fmt::Display for StackObject {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum ObjectPointer {
     #[default]
     Null,
     Stack(usize, usize),
-    Heap(usize),
+    Heap(Arc<usize>),
 }
 
 impl std::fmt::Display for ObjectPointer {
