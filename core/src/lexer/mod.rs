@@ -61,7 +61,7 @@ impl Lexer {
 
     fn read_next_token(&mut self) -> Result<LexerToken, LexerErr> {
         let mut cur_token = if let Some(ch) = self.take_next_char() {
-            let temp = self.match_new(ch).unwrap(); // TODO: Remove unwrap
+            let temp = self.match_new(ch).unwrap(); // TODO: This could fail
             self.file_pos.extend_with(ch.to_string());
             temp
         } else {

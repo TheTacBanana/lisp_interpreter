@@ -21,8 +21,6 @@ impl Rules {
         }
     }
 
-    // TODO: Inline hex escape
-    // TODO: Actual character checking?
     pub fn start_identifier(ch: char) -> bool {
         !ch.is_control() && !ch.is_numeric()
     }

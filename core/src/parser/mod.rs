@@ -87,7 +87,7 @@ impl Parser {
                     };
                 }
             }
-            ParserTokenKind::Identifier(_) => { //TODO: Make this less fucked
+            ParserTokenKind::Identifier(_) => {
                 let total_span = self.tokens.total_span().unwrap();
                 let mut things = VecDeque::new();
                 while !self.tokens.is_empty() {
@@ -96,18 +96,18 @@ impl Parser {
                         Err(e) => errors.push(e),
                     };
                 }
+
                 let len = things.len();
                 let mut drain = things.drain(..);
-                if len == 1 {
-                    items.push(drain.next().unwrap())
-                } else if len == 0 {
-                    todo!()
-                } else {
-                    let op = drain.next().unwrap();
-                    let body = drain.collect::<Vec<_>>();
-                    items.push(AST::Operation(Box::new(op), body, total_span))
+                match len {
+                    0 => (),
+                    1 => items.push(drain.next().unwrap()),
+                    _ => {
+                        let op = drain.next().unwrap();
+                        let body = drain.collect::<Vec<_>>();
+                        items.push(AST::Operation(Box::new(op), body, total_span))
+                    }
                 }
-
             }
         };
         ParseResult { ast: items, errors }

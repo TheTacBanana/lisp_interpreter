@@ -45,17 +45,6 @@ pub enum HeapObject {
     Func(Func),
 }
 
-impl std::fmt::Display for HeapObject {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HeapObject::Value(_) => todo!(),
-            HeapObject::String(_) => todo!(),
-            HeapObject::List(_, _) => todo!(),
-            HeapObject::Func(_) => todo!(),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub enum ObjectRef<'a> {
     Null,

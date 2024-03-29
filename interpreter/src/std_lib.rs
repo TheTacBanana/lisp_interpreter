@@ -159,14 +159,11 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
             for p in op_params.iter() {
                 match p {
                     AST::Identifier(ident, _) => param_names.push(ident.clone()),
-                    AST::Literal(_, span) | AST::StringLiteral(_, span) => {
+                    e => {
                         return Err(InterpreterError::spanned(
                             InterpreterErrorKind::InvalidFuncParamNames,
-                            *span,
+                            e.span(),
                         ))
-                    }
-                    _ => {
-                        todo!()
                     }
                 }
             }
@@ -363,7 +360,7 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
                         let p = h.clone().stack_alloc(interpreter)?;
                         interpreter.push_data(p);
                     }
-                    _ => todo!(),
+                    _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
                 }
             }
         },
@@ -390,7 +387,9 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
             ObjectPointer::Null => {
                 return Err(InterpreterError::new(InterpreterErrorKind::NullDeref))
             }
-            ObjectPointer::Stack(_, _) => todo!(),
+            ObjectPointer::Stack(_, _) => {
+                todo!()
+            },
             ObjectPointer::Heap(p) => {
                 match &interpreter
                     .heap
@@ -402,7 +401,7 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
                         let p = t.clone().stack_alloc(interpreter)?;
                         interpreter.push_data(p);
                     }
-                    _ => todo!(),
+                    _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
                 }
             }
         },

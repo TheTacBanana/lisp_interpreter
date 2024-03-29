@@ -45,22 +45,27 @@ pub enum InterpreterErrorKind {
     CannotCall(String),
     ExpectedNParams { expected: usize, received: usize },
 
+    // Failed Operation
+    ExpectedList,
     NullDeref,
+    CannotAllocateNull, // TODO:
+    PointerDoesNotExist, // TODO:
+    FailedOperation, // TODO:
+
+    // Stack Related
     EmptyStack,
     EmptyDataStack,
-    ExpectedResult,
     StackIndexOutOfRange,
-    PointerDoesNotExist,
-    FailedOperation,
-    CannotAllocateNull,
-    ExpectedList,
-    InvalidFuncParamNames,
 
     // Import Errors
     EmptyImport,
     InvalidInImport,
     ImportNotFound(String),
     ErrorInParsingImport,
+
+    // Definition Syntax
+    InvalidFuncParamNames,
+
 }
 
 impl FormattedError for InterpreterError {
@@ -92,7 +97,6 @@ impl std::fmt::Display for InterpreterErrorKind {
             }
             InterpreterErrorKind::EmptyStack => "Stack is empty, cannot pop Stack frame",
             InterpreterErrorKind::EmptyDataStack => "Data Stack is empty, cannot pop Data Stack",
-            InterpreterErrorKind::ExpectedResult => "Expected Result?", //TODO:
             InterpreterErrorKind::StackIndexOutOfRange => "Pointer exceeds limit of stack",
             InterpreterErrorKind::PointerDoesNotExist => "Pointer does not.", //TODO:
             InterpreterErrorKind::FailedOperation => "Operation arguments not valid",
