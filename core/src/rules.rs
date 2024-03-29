@@ -49,6 +49,7 @@ impl Rules {
             ('0'..='9', Some(r)) if Rules::delimiter(r) => true,
             ('0'..='9', Some('0'..='9' | 'a'..='f' | 'A'..='F')) => true,
             ('0'..='9', None) => true,
+            ('-', Some('0'..='9' | '#')) => true,
             _ => false,
         }
     }

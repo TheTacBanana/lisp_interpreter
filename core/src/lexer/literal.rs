@@ -25,7 +25,9 @@ impl NumericLiteral {
 
             ('0'..='9', Some('.')) => NumericLiteral::Float(s),
             ('0'..='9', _) => NumericLiteral::Dec(s),
-            _ => panic!(),
+            ('-', Some('0'..='9')) => NumericLiteral::Dec(s),
+            ('-', Some('#')) => NumericLiteral::Dec(s),
+            e => todo!("{e:?}"),
         }
     }
 

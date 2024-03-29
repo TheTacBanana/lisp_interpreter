@@ -40,7 +40,7 @@ impl Parser {
                         };
                         Some(Literal::from_bool(b).into())
                     }
-                    LexerTokenKind::Numeric(nl) => Some(Literal::from_numeric(nl).into()),
+                    LexerTokenKind::Numeric(nl) => Some(Literal::from_numeric(nl)?.into()),
                     LexerTokenKind::Character(ch) => {
                         Some(Literal::from_char(ch.chars().nth(2)?).into())
                     }

@@ -83,22 +83,6 @@ impl Lexer {
             let ch = self.peek_next_char().copied();
             let state =
                 match (cur_token.inner(), ch) {
-                    (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
-
-                    (Token::Symbol(_), Some(s)) if Rules::symbol(s) => State::Consume,
-
-                    (Token::Comment(_), Some(n)) if Rules::line_break(n) => State::ConsumeAndBreak,
-                    (Token::Comment(_), Some(_)) => State::Consume,
-
-                    (Token::Boolean(_), Some(b)) if Rules::boolean(b) => State::Consume,
-
-                    (Token::Identifer(_), Some(i)) if Rules::identifier(i) => State::Consume,
-
-                    (Token::Character(cs), Some('\\')) if cs.len() == 1 => State::Consume,
-                    (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => {
-                        State::Consume
-                    }
-
                     (Token::String(_), None) => {
                         err = Some(LexerTokenErrorKind::EOFInStringLiteral);
                         State::Break
@@ -118,10 +102,31 @@ impl Lexer {
                     }
                     (Token::String(_), Some(_)) => State::Consume,
 
+                    (_, Some(c)) if Rules::line_break(c) => {
+                        State::Break
+                    }
+
+                    (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
+
+                    (Token::Symbol(_), Some(s)) if Rules::symbol(s) => State::Consume,
+
+                    (Token::Comment(_), Some(n)) if Rules::line_break(n) => State::ConsumeAndBreak,
+                    (Token::Comment(_), Some(_)) => State::Consume,
+
+                    (Token::Boolean(_), Some(b)) if Rules::boolean(b) => State::Consume,
+
+                    (Token::Identifer(_), Some(i)) if Rules::identifier(i) => State::Consume,
+
+                    (Token::Character(cs), Some('\\')) if cs.len() == 1 => State::Consume,
+                    (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => {
+                        State::Consume
+                    }
+
+
                     (
                         Token::Numeric(NL::Bin(s) | NL::Oct(s) | NL::Dec(s) | NL::Hex(s)),
                         Some('b' | 'o' | 'd' | 'x' | 'B' | 'O' | 'D' | 'X'),
-                    ) if s.len() == 1 => {
+                    ) if s.len() == 1 && s == "#" => {
                         match ch.unwrap() {
                             'b' | 'B' => cur_token
                                 .map_inner(|t| LexerTokenKind::Numeric(NL::Bin(t.to_string()))),
@@ -146,11 +151,34 @@ impl Lexer {
                         State::Consume
                     }
                     (Token::Numeric(NL::Bin(_)), Some('0' | '1')) => State::Consume,
+                    (Token::Numeric(NL::Bin(_)), Some(_)) => {
+                        err = Some(LexerTokenErrorKind::InvalidInNAryLiteral(2));
+                        State::Consume
+                    },
+
                     (Token::Numeric(NL::Oct(_)), Some('0'..='7')) => State::Consume,
+                    (Token::Numeric(NL::Oct(_)), Some(_)) => {
+                        err = Some(LexerTokenErrorKind::InvalidInNAryLiteral(8));
+                        State::Consume
+                    },
+
                     (Token::Numeric(NL::Dec(_)), Some('0'..='9')) => State::Consume,
+                    (Token::Numeric(NL::Dec(_)), Some('#')) => {
+                        err = Some(LexerTokenErrorKind::InvalidInNumericLiteral);
+                        State::Consume
+                    },
+                    (Token::Numeric(NL::Dec(_)), Some(_)) => {
+                        err = Some(LexerTokenErrorKind::InvalidInNAryLiteral(10));
+                        State::Consume
+                    },
+
                     (Token::Numeric(NL::Hex(_)), Some('0'..='9' | 'a'..='f' | 'A'..='F')) => {
                         State::Consume
                     }
+                    (Token::Numeric(NL::Hex(_)), Some(_)) => {
+                        err = Some(LexerTokenErrorKind::InvalidInNAryLiteral(16));
+                        State::Consume
+                    },
 
                     _ => State::Break,
                 };

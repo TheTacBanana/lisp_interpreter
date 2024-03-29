@@ -114,6 +114,7 @@ pub enum LexerTokenErrorKind {
     InvalidInNAryLiteral(usize),
     /// Point used in N-ary Literal
     PointInNAryLiteral(usize),
+    InvalidInNumericLiteral,
 }
 
 impl std::fmt::Display for LexerTokenErrorKind {
@@ -134,6 +135,7 @@ impl std::fmt::Display for LexerTokenErrorKind {
                 tmp = format!("Decimal point in Base {n} Literal");
                 &tmp
             }
+            LexerTokenErrorKind::InvalidInNumericLiteral => "Invalid character in Numeric Literal",
         }
         .to_string();
         write!(f, "{}", s)?;

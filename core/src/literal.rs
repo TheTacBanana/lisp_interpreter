@@ -18,8 +18,8 @@ impl Literal {
         Literal::Character(c)
     }
 
-    pub fn from_numeric(lit: NumericLiteral) -> Self {
-        Literal::Numeric(Numeric::from_literal(lit))
+    pub fn from_numeric(lit: NumericLiteral) -> Option<Self> {
+        Some(Literal::Numeric(Numeric::from_literal(lit)?))
     }
 
     pub fn is_truthy(&self) -> bool {
@@ -54,14 +54,14 @@ pub enum Numeric {
 }
 
 impl Numeric {
-    pub fn from_literal(lit: NumericLiteral) -> Self {
-        match lit {
-            NumericLiteral::Float(f) => Numeric::Float(f.parse::<f32>().unwrap()),
-            NumericLiteral::Dec(d) => Numeric::Int(d.parse::<i32>().unwrap()),
-            NumericLiteral::Bin(b) => Numeric::Int(i32::from_str_radix(&b[2..], 2).unwrap()),
-            NumericLiteral::Oct(o) => Numeric::Int(i32::from_str_radix(&o[2..], 8).unwrap()),
-            NumericLiteral::Hex(x) => Numeric::Int(i32::from_str_radix(&x[2..], 16).unwrap()),
-        }
+    pub fn from_literal(lit: NumericLiteral) -> Option<Self> {
+        Some(match lit {
+            NumericLiteral::Float(f) => Numeric::Float(f.parse::<f32>().ok()?),
+            NumericLiteral::Dec(d) => Numeric::Int(d.parse::<i32>().ok()?),
+            NumericLiteral::Bin(b) => Numeric::Int(i32::from_str_radix(&b[2..], 2).ok()?),
+            NumericLiteral::Oct(o) => Numeric::Int(i32::from_str_radix(&o[2..], 8).ok()?),
+            NumericLiteral::Hex(x) => Numeric::Int(i32::from_str_radix(&x[2..], 16).ok()?),
+        })
     }
 }
 

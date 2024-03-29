@@ -21,6 +21,8 @@ fn main() {
         let file_id = context.error_writer.load_string(str_in.clone());
         let Ok(ast) = LexerParser::from_string(file_id, str_in, &context.error_writer) else { continue; };
 
+        println!("{:?}", ast);
+
         context.start(ast);
         if let Ok(p) = context.pop_data() {
             let obj = p.deref(&context).unwrap();
