@@ -1,9 +1,9 @@
 use std::ops::Deref;
 use std::{env, fs::File, io::Read};
 
-use scheme_core::{literal::Literal, parser::ast::AST, LexerParser};
+use core::{literal::Literal, parser::ast::AST, LexerParser};
 
-use scheme_core::token::span::TotalSpan;
+use core::token::span::TotalSpan;
 
 use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},

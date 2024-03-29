@@ -6,7 +6,7 @@ use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use deref::InterpreterDeref;
 use frame::Frame;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
-use scheme_core::{
+use core::{
     error::{ErrorWriter, FormattedError},
     parser::ast::AST,
     token::span::{Span},

@@ -1,11 +1,11 @@
 use std::{fs::File, io::Read};
 
 use anyhow::{Ok, Result};
-use scheme_core::{
+use core::{
     error::ErrorWriter,
     LexerParser,
 };
-use scheme_interpreter::InterpreterContext;
+use interpreter::InterpreterContext;
 
 pub fn main() -> Result<()> {
     let file_names = std::env::args().skip(1).collect::<Vec<_>>();

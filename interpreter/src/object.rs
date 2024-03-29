@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use scheme_core::literal::Literal;
+use core::literal::Literal;
 
 use crate::func::Func;
 

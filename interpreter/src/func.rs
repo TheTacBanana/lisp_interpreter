@@ -1,4 +1,4 @@
-use scheme_core::parser::ast::AST;
+use core::parser::ast::AST;
 
 use crate::{InterpreterContext, InterpreterResult};
 

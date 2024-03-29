@@ -1,9 +1,9 @@
 use std::io::Write;
 
-use scheme_core::{
+use core::{
     error::ErrorWriter, LexerParser
 };
-use scheme_interpreter::{
+use interpreter::{
     deref::InterpreterDeref,
     InterpreterContext,
 };
