@@ -104,15 +104,14 @@ impl Lexer {
 
                     (Token::Symbol(_), Some(s)) if Rules::symbol(s) => State::Consume,
 
-                    (_, Some(c)) if Rules::delimiter(c) => {
-                        State::Break
-                    }
-
                     (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
-
 
                     (Token::Comment(_), Some(n)) if Rules::line_break(n) => State::ConsumeAndBreak,
                     (Token::Comment(_), Some(_)) => State::Consume,
+
+                    (_, Some(c)) if Rules::delimiter(c) => {
+                        State::Break
+                    }
 
                     (Token::Boolean(_), Some(b)) if Rules::boolean(b) => State::Consume,
 

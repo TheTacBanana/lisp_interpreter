@@ -346,19 +346,12 @@ pub enum InterpreterErrorKind {
 }
 
 impl FormattedError for InterpreterError {
-    fn fmt_err(&self, ew: &ErrorWriter) -> std::fmt::Result {
-        if let Some(total_span) = self.span {
-            if let Some(file_link) = ew.link_file(total_span) {
-                println!("Error: {} at {}", self.kind, file_link);
-            } else {
-                println!("Error: {}", self.kind)
-            }
-            for span in ew.span_to_lines(total_span).unwrap() {
-                println!("{}", ew.get_line(span.file_id, span.start.line).unwrap());
-                println!("{}", ErrorWriter::underline_span(span));
-            }
-        }
-        Ok(())
+    fn message(&self) -> String {
+        self.kind.to_string()
+    }
+
+    fn span(&self) -> Option<Span> {
+        self.span
     }
 }
 

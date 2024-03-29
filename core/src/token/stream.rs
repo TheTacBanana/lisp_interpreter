@@ -6,8 +6,6 @@ use super::{span::Span, Token};
 
 pub type TokenStream = VecDeque<Token<ParserTokenKind>>;
 
-// pub type TokenStream<T> = VecDeque<T>;
-
 pub trait TokenStreamExt: Sized {
     /// Find a token matching a given predicate
     fn find(&self, f: impl Fn(&Token<ParserTokenKind>) -> bool) -> Option<usize>;

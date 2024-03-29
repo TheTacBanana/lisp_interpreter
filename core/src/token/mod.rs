@@ -11,10 +11,6 @@ pub struct Token<T> {
     pub span: Span,
 }
 
-pub trait TokenKind : Sized{
-    // fn the_same(&self, other: &Self) -> bool;
-}
-
 pub struct ErrorToken<T, E> {
     pub token: Token<T>,
     pub err: E,
