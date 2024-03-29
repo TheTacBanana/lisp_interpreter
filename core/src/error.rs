@@ -104,7 +104,7 @@ impl ErrorWriter {
                 spans.push(Span::from_to_on(
                     span.file_id,
                     0,
-                    self.get_line_length(span.file_id, line).unwrap(),
+                    self.get_line_length(span.file_id, line).unwrap() - 1,
                     line,
                 ))
             }
@@ -128,7 +128,7 @@ impl ErrorWriter {
 pub trait FormattedError {
     fn fmt_err(&self, ew: &ErrorWriter) -> std::fmt::Result {
         println!();
-        println!("error: {}", self.message());
+        println!("Error: {}", self.message());
 
         let Some(span) = self.span() else {
             return Ok(());
@@ -149,6 +149,7 @@ pub trait FormattedError {
             .0
             .len();
 
+        println!(" {} |", format!("{: >1$}", "", max_num_length));
         for (num, span) in numbered_line_spans.iter() {
             println!(
                 " {} | {}",
@@ -156,7 +157,11 @@ pub trait FormattedError {
                 ew.get_line(span.file_id, span.start.line).unwrap()
             );
 
-            println!(" {} | {}", format!("{: >1$}", "", max_num_length), ErrorWriter::underline_span(*span));
+            println!(
+                " {} | {}",
+                format!("{: >1$}", "", max_num_length),
+                ErrorWriter::underline_span(*span)
+            );
         }
         Ok(())
     }

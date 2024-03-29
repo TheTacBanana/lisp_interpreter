@@ -4,7 +4,7 @@ pub struct Rules;
 impl Rules {
     pub fn delimiter(ch: char) -> bool {
         match ch {
-            '(' | ')' | '[' | ']' | '"' | ';' | '#' => true,
+            '(' | ')' | '[' | ']' | '"' | ';' => true,
             x if Rules::whitespace(x) => true,
             _ => false,
         }

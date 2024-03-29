@@ -149,6 +149,11 @@ impl Lexer {
 
                         State::Consume
                     }
+                    (Token::Numeric(NL::Float(_)), Some(_)) => {
+                        err = Some(LexerTokenErrorKind::InvalidInNumericLiteral);
+                        State::Consume
+                    },
+
                     (Token::Numeric(NL::Bin(_)), Some('0' | '1')) => State::Consume,
                     (Token::Numeric(NL::Bin(_)), Some(_)) => {
                         err = Some(LexerTokenErrorKind::InvalidInNAryLiteral(2));

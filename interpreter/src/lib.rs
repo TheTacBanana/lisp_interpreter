@@ -3,19 +3,21 @@
 use std::{collections::HashMap, error::Error, ops::Deref, sync::Arc};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
-use deref::InterpreterDeref;
-use frame::Frame;
-use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
 use core::{
     error::{ErrorWriter, FormattedError},
     parser::ast::AST,
-    token::span::{Span},
+    token::span::Span,
 };
+use deref::InterpreterDeref;
+use error::{InterpreterError, InterpreterErrorKind};
+use frame::Frame;
+use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
 
 use crate::func::Func;
 
 pub mod alloc;
 pub mod deref;
+pub mod error;
 pub mod frame;
 pub mod func;
 pub mod object;
@@ -115,7 +117,7 @@ impl InterpreterContext {
             .enumerate()
             .filter_map(|(i, o)| o.as_ref().map(|o| (i, o)))
         {
-            if let (refs, Ok(item))= (Arc::strong_count(&o.1), o.0.deref(self)) {
+            if let (refs, Ok(item)) = (Arc::strong_count(&o.1), o.0.deref(self)) {
                 println!("[{i}] {} {refs}", item)
             } else {
                 println!("[{i}] Deref Failed {o:?}")
@@ -188,51 +190,55 @@ impl InterpreterContext {
         self.frame_stack.push(frame);
 
         let param_count = body.len();
-        match unsafe { func.as_ref().unwrap() } {
-            Func::Native(_, native_func) => {
-                for param in body.drain(..) {
-                    self.interpret(param)?
+        let mut call_func = || -> InterpreterResult<()> {
+            match unsafe { func.as_ref().unwrap() } {
+                Func::Native(_, native_func) => {
+                    for param in body.drain(..) {
+                        self.interpret(param)?
+                    }
+                    native_func(self, param_count)
                 }
-                native_func(self, param_count)?
-            }
-            Func::Defined(_, param_names, ast) => {
-                if body.len() != param_names.len() {
-                    return Err(InterpreterError::spanned(
-                        InterpreterErrorKind::ExpectedNParams {
-                            expected: param_names.len(),
-                            received: body.len(),
-                        },
-                        op.span(),
-                    ));
+                Func::Defined(_, param_names, ast) => {
+                    if body.len() != param_names.len() {
+                        return Err(InterpreterError::spanned(
+                            InterpreterErrorKind::ExpectedNParams {
+                                expected: param_names.len(),
+                                received: body.len(),
+                            },
+                            op.span(),
+                        ));
+                    }
+
+                    for param in body.drain(..) {
+                        self.interpret(param)?
+                    }
+
+                    let mut params = Vec::new();
+                    for _ in 0..param_count {
+                        params.push(self.pop_data()?);
+                    }
+                    params.reverse();
+
+                    let frame = self.top_frame()?;
+                    param_names.iter().zip(params).for_each(|(name, obj)| {
+                        frame.insert_local(name, obj);
+                    });
+
+                    self.interpret(ast)
                 }
-
-                for param in body.drain(..) {
-                    self.interpret(param)?
+                Func::TokenNative(_, native_special_func) => {
+                    let params = std::mem::take(&mut body);
+                    native_special_func(self, params)
                 }
-
-                let mut params = Vec::new();
-                for _ in 0..param_count {
-                    params.push(self.pop_data()?);
+                Func::Macro(_, macro_func) => {
+                    let params = std::mem::take(&mut body);
+                    let ast = macro_func(self, params)?;
+                    self.interpret(unsafe { ast.as_ref().unwrap() })
                 }
-                params.reverse();
+            }
+        };
+        call_func().map_err(|e| e.add_if_not_spanned(op.span()))?;
 
-                let frame = self.top_frame()?;
-                param_names.iter().zip(params).for_each(|(name, obj)| {
-                    frame.insert_local(name, obj);
-                });
-
-                self.interpret(ast)?
-            }
-            Func::TokenNative(_, native_special_func) => {
-                let params = std::mem::take(&mut body);
-                native_special_func(self, params)?;
-            }
-            Func::Macro(_, macro_func) => {
-                let params = std::mem::take(&mut body);
-                let ast = macro_func(self, params)?;
-                self.interpret(unsafe { ast.as_ref().unwrap() })?;
-            }
-        }
         self.pop_frame()?;
 
         Ok(())
@@ -282,121 +288,3 @@ impl InterpreterContext {
         ))
     }
 }
-
-#[derive(Debug)]
-pub struct InterpreterError {
-    span: Option<Span>,
-    kind: InterpreterErrorKind,
-}
-
-impl std::fmt::Display for InterpreterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?} {}", self.span, self.kind)
-    }
-}
-
-impl Error for InterpreterError {}
-
-impl InterpreterError {
-    pub fn new(kind: InterpreterErrorKind) -> Self {
-        Self { span: None, kind }
-    }
-
-    pub fn optional_span(kind: InterpreterErrorKind, span: Option<Span>) -> Self {
-        Self { span, kind }
-    }
-
-    pub fn spanned(kind: InterpreterErrorKind, span: Span) -> Self {
-        Self {
-            span: Some(span),
-            kind,
-        }
-    }
-
-    pub fn add_if_not_spanned(mut self, span: Span) -> Self {
-        self.span.get_or_insert(span);
-        self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum InterpreterErrorKind {
-    // Identifier Errors
-    CantResolveIdentifier(String),
-    IsNotParamName(String),
-    CannotCall(String),
-    ExpectedNParams { expected: usize, received: usize },
-
-    NullDeref,
-    EmptyStack,
-    EmptyDataStack,
-    ExpectedResult,
-    StackIndexOutOfRange,
-    PointerDoesNotExist,
-    FailedOperation,
-    CannotAllocateNull,
-    ExpectedList,
-    InvalidFuncParamNames,
-
-    // Import Errors
-    EmptyImport,
-    InvalidInImport,
-    ImportNotFound(String),
-    ErrorInParsingImport,
-}
-
-impl FormattedError for InterpreterError {
-    fn message(&self) -> String {
-        self.kind.to_string()
-    }
-
-    fn span(&self) -> Option<Span> {
-        self.span
-    }
-}
-
-impl std::fmt::Display for InterpreterErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let temp;
-        let s = match self {
-            InterpreterErrorKind::NullDeref => "Null Pointer Dereferenced",
-            InterpreterErrorKind::CannotCall(s) => {
-                temp = format!("Cannot call '{s}', it is not a function");
-                &temp
-            }
-            InterpreterErrorKind::IsNotParamName(s) => {
-                temp = format!("'{s}' is not an ident");
-                &temp
-            },
-            InterpreterErrorKind::CantResolveIdentifier(s) => {
-                temp = format!("{s} is not a known identifier");
-                &temp
-            }
-            InterpreterErrorKind::EmptyStack => "Stack is empty, cannot pop Stack frame",
-            InterpreterErrorKind::EmptyDataStack => "Data Stack is empty, cannot pop Data Stack",
-            InterpreterErrorKind::ExpectedResult => "Expected Result?", //TODO:
-            InterpreterErrorKind::StackIndexOutOfRange => "Pointer exceeds limit of stack",
-            InterpreterErrorKind::PointerDoesNotExist => "Pointer does not.", //TODO:
-            InterpreterErrorKind::FailedOperation => "Operation arguments not valid",
-            InterpreterErrorKind::CannotAllocateNull => {
-                "Cannot allocate whatever the fuck this is to the heap" //TODO:
-            }
-            InterpreterErrorKind::ExpectedList => "Operation expected a List",
-            InterpreterErrorKind::InvalidFuncParamNames => "Invalid Param names",
-            InterpreterErrorKind::ExpectedNParams { expected, received } => {
-                temp = format!("Operation expected {expected} parameters received {received}");
-                &temp
-            }
-            InterpreterErrorKind::EmptyImport => "Import is empty",
-            InterpreterErrorKind::InvalidInImport => "Invalid in import",
-            InterpreterErrorKind::ImportNotFound(s) => {
-                temp = format!("Import '{s}' cannot be found");
-                &temp
-            }
-            InterpreterErrorKind::ErrorInParsingImport => "Parse error in import",
-        };
-        write!(f, "{s}")
-    }
-}
-
-impl Error for InterpreterErrorKind {}
