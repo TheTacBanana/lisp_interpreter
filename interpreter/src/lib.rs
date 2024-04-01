@@ -189,8 +189,6 @@ impl InterpreterContext {
             f as *const Func
         };
 
-        println!("{func:?}");
-
         let func_name = unsafe { func.as_ref().unwrap().to_string() };
         let frame = Frame::new(self.frame_stack.len(), func_name);
         self.frame_stack.push(frame);
@@ -244,9 +242,7 @@ impl InterpreterContext {
             }
         };
 
-        println!(":3");
         call_func().map_err(|e| e.add_if_not_spanned(op.span()))?;
-        println!(":3");
 
         self.pop_frame()?;
 

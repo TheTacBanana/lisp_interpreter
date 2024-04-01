@@ -52,10 +52,10 @@ pub enum HeapObject {
 impl std::fmt::Display for HeapObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            o => write!(f, "{o}"),
-            // HeapObject::String(_) => todo!(),
-            // HeapObject::List(_, _) => todo!(),
-            // HeapObject::Func(_) => todo!(),
+            HeapObject::Value(v) => write!(f, "{v}"),
+            HeapObject::String(s) => write!(f, "\"{s}\""),
+            HeapObject::List(h, t) => write!(f, "{h}:{t}"),
+            HeapObject::Func(_fn) => write!(f, "{_fn}"),
         }
     }
 }
@@ -77,28 +77,8 @@ impl std::fmt::Display for ObjectRef<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ObjectRef::Object(o) => write!(f, "{}", o.deref()),
-            o => write!(f, "{}", o),
+            ObjectRef::Null => write!(f, "()"),
+            ObjectRef::Value(v) => write!(f, "{v}"),
         }
     }
 }
-
-// #[derive(Debug)]
-// pub enum ObjectRef<'a> {
-//     Null,
-//     Value(Literal),
-//     Func(InterpreterObjectRef<'a, Func>),
-//     String(InterpreterObjectRef<'a, String>),
-//     List(ObjectPointer, ObjectPointer),
-// }
-
-// impl std::fmt::Display for ObjectRef<'_> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             ObjectRef::List(head, tail) => write!(f, "{head} {tail}"),
-//             ObjectRef::Value(v) => write!(f, "{v}"),
-//             ObjectRef::Func(fid) => write!(f, "{fid}"),
-//             ObjectRef::String(s) => write!(f, "{s}"),
-//             ObjectRef::Null => write!(f, "()"),
-//         }
-//     }
-// }
