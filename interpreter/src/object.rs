@@ -67,6 +67,21 @@ pub enum ObjectRef<'a> {
     Object(MappedRwLockReadGuard<'a, HeapObject>),
 }
 
+impl ObjectRef<'_> {
+    pub fn clone_to_unallocated(&self) -> UnallocatedObject {
+        match self {
+            ObjectRef::Value(v) => UnallocatedObject::Value(*v),
+            ObjectRef::Object(o) => match (*o).clone() {
+                HeapObject::Value(v) => UnallocatedObject::Value(v),
+                HeapObject::String(s) => UnallocatedObject::String(s),
+                HeapObject::List(h, t) => UnallocatedObject::List(h, t), //TODO: Perhaps some copy issues here
+                HeapObject::Func(f) => UnallocatedObject::Func(f),
+            },
+            ObjectRef::Null => UnallocatedObject::Null,
+        }
+    }
+}
+
 impl<'a> Into<ObjectRef<'a>> for MappedRwLockReadGuard<'a, HeapObject> {
     fn into(self) -> ObjectRef<'a> {
         ObjectRef::Object(self)
@@ -81,4 +96,13 @@ impl std::fmt::Display for ObjectRef<'_> {
             ObjectRef::Value(v) => write!(f, "{v}"),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum UnallocatedObject {
+    Value(Literal),
+    Func(Func),
+    String(String),
+    List(ObjectPointer, ObjectPointer),
+    Null,
 }

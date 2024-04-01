@@ -63,9 +63,6 @@ impl InterpreterHeap {
             store_len
         };
 
-        println!("{id}");
-
-
         let mut store_write = self.store.write().unwrap();
         if id >= store_len {
             let extend = ((store_len)..=id).map(|_| None);
@@ -88,7 +85,7 @@ impl GarbageCollector {
     pub fn new(heap: Arc<InterpreterHeap>) -> Self {
         Self {
             heap,
-            delay: Duration::from_secs_f32(1.0),
+            delay: Duration::from_secs_f32(5.0),
         }
     }
 
@@ -100,45 +97,53 @@ impl GarbageCollector {
         loop {
             std::thread::sleep(self.delay);
 
-            // println!("hi")
+            let to_free = {
+                let heap_ref = self.heap.store.read().unwrap();
+                let get_strong_count = |i: usize| -> Option<usize> {
+                    heap_ref
+                        .get(i)
+                        .and_then(|x| x.as_ref())
+                        .map(|(_, arc)| Arc::strong_count(&arc))
+                };
 
-            // let get_strong_count = |i: usize, heap_ref: &mut InterpreterHeap| -> Option<usize> {
-            //     heap_ref
-            //         .store
-            //         .get(i)
-            //         .and_then(|x| x.as_ref())
-            //         .map(|(_, arc)| Arc::strong_count(&arc))
-            // };
-            // println!("{:?}", self.heap);
+                let mut queue = (0..heap_ref.len())
+                    .filter(|i| get_strong_count(*i).filter(|c| *c <= 1).is_some())
+                    .collect::<Vec<_>>();
 
-            // let heap_ref = unsafe { self.heap.0.as_mut().unwrap() };
+                println!("{queue:?}");
 
-            // println!("hi {:?}", self.heap.read().unwrap().test);
+                let mut to_free = Vec::new();
 
-            // let mut queue = (0..heap_ref.store.len())
-            //     .filter_map(|i| dbg!(get_strong_count(i, heap_ref)))
-            //     .filter(|&c| c <= 1)
-            //     .collect::<Vec<_>>();
+                while !queue.is_empty() {
+                    let popped = queue.pop().unwrap();
+                    println!("Popped {popped}");
 
-            // println!("hi");
+                    match self.heap.get_heap_object(popped).unwrap() {
+                        ObjectRef::Object(o) => match &*o {
+                            HeapObject::List(ObjectPointer::Heap(h), ObjectPointer::Heap(t)) => {
+                                queue.push(*h.deref());
+                                queue.push(*t.deref());
+                            }
+                            _ => (),
+                        },
+                        _ => (),
+                    }
 
-            // while !queue.is_empty() {
-            //     let popped = queue.pop().unwrap();
-            //     println!("{popped}");
-            //     if get_strong_count(popped, heap_ref).is_some_and(|i| i > 1) {
-            //         continue;
-            //     }
+                    to_free.push(popped)
+                }
+                to_free
+            };
 
-            //     if let Some(HeapObject::List(ObjectPointer::Heap(h), ObjectPointer::Heap(t))) =
-            //         heap_ref.get_heap_object(popped)
-            //     {
-            //         queue.push(*h.deref());
-            //         queue.push(*t.deref());
-            //     }
+            if !to_free.is_empty() {
+                let mut write_lock = self.heap.store.write().unwrap();
+                let mut free_vec = self.heap.free_slots.write().unwrap();
 
-            //     heap_ref.free_slots.push(popped);
-            //     heap_ref.store[popped] = None
-            // }
+                for index in to_free.iter() {
+                    write_lock[*index] = None;
+                    free_vec.push(*index);
+                    println!("Dropped {index}")
+                }
+            }
         }
     }
 }

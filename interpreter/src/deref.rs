@@ -14,7 +14,6 @@ impl InterpreterDeref for ObjectPointer {
         &'a self,
         interpreter: &'a InterpreterContext,
     ) -> InterpreterResult<ObjectRef<'a>> {
-        println!("{self}");
         match self {
             ObjectPointer::Null => Ok(ObjectRef::Null),
             ObjectPointer::Heap(p) => {
@@ -42,7 +41,6 @@ impl InterpreterDeref for StackObject {
         &'a self,
         interpreter: &'a InterpreterContext,
     ) -> InterpreterResult<ObjectRef<'a>> {
-        println!("{self:?}");
         match self {
             StackObject::Value(v) => Ok(ObjectRef::Value(*v)),
             StackObject::Ref(p) => p.deref(interpreter),

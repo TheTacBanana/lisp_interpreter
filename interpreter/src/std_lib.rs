@@ -5,6 +5,7 @@ use core::{literal::Literal, parser::ast::AST, LexerParser};
 
 use core::token::span::TotalSpan;
 
+use crate::object::UnallocatedObject;
 use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},
     deref::InterpreterDeref,
@@ -255,42 +256,42 @@ pub fn write(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResul
     Ok(())
 }
 
-// macro_rules! bin_op {
-//     ($name:ident, $l:ident, $r:ident, $calc:expr) => {
-//         pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-//             let mut objs = Vec::new();
-//             for _ in 0..n {
-//                 objs.push(interpreter.pop_data()?);
-//             }
-//             objs.reverse();
+macro_rules! bin_op {
+    ($name:ident, $l:ident, $r:ident, $calc:expr) => {
+        pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+            let mut objs = Vec::new();
+            for _ in 0..n {
+                objs.push(interpreter.pop_data()?);
+            }
+            objs.reverse();
 
-//             let drain = objs.drain(..);
-//             let out = drain.fold(None, |out, obj| {
-//                 match (out, obj.deref(interpreter).unwrap()) {
-//                     (None, v) => Some(v.clone_to_unallocated()),
-//                     (
-//                         Some(UnallocatedObject::Value(Literal::Numeric($l))),
-//                         ObjectRef::Value(Literal::Numeric($r)),
-//                     ) => Some(UnallocatedObject::Value(Literal::Numeric($calc))),
-//                     _ => panic!(),
-//                 }
-//             });
+            let drain = objs.drain(..);
+            let out = drain.fold(None, |out, obj| {
+                match (out, obj.deref(interpreter).unwrap()) {
+                    (None, v) => Some(v.clone_to_unallocated()),
+                    (
+                        Some(UnallocatedObject::Value(Literal::Numeric($l))),
+                        ObjectRef::Value(Literal::Numeric($r)),
+                    ) => Some(UnallocatedObject::Value(Literal::Numeric($calc))),
+                    _ => panic!(),
+                }
+            });
 
-//             let stack_obj = out
-//                 .ok_or(InterpreterError::new(InterpreterErrorKind::FailedOperation))?
-//                 .stack_alloc(interpreter)?;
+            let stack_obj = out
+                .ok_or(InterpreterError::new(InterpreterErrorKind::FailedOperation))?
+                .stack_alloc(interpreter)?;
 
-//             interpreter.push_data(stack_obj);
+            interpreter.push_data(stack_obj);
 
-//             return Ok(());
-//         }
-//     };
-// }
+            return Ok(());
+        }
+    };
+}
 
-// bin_op!(add, l, r, l + r);
-// bin_op!(sub, l, r, l - r);
-// bin_op!(mul, l, r, l * r);
-// bin_op!(div, l, r, l / r);
+bin_op!(add, l, r, l + r);
+bin_op!(sub, l, r, l - r);
+bin_op!(mul, l, r, l * r);
+bin_op!(div, l, r, l / r);
 
 // macro_rules! cmp_op {
 //     ($name:ident, $l:ident, $r:ident, $calc:expr) => {

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    object::{HeapObject, ObjectPointer, StackObject},
+    object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject},
     InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
@@ -20,14 +20,14 @@ impl InterpreterStackAlloc for ObjectPointer {
     }
 }
 
-// impl InterpreterStackAlloc for UnallocatedObject {
-//     fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
-//         match self {
-//             UnallocatedObject::Value(v) => Ok(StackObject::Value(v)),
-//             o => Ok(StackObject::Ref(o.heap_alloc(interpreter)?)),
-//         }
-//     }
-// }
+impl InterpreterStackAlloc for UnallocatedObject {
+    fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
+        match self {
+            UnallocatedObject::Value(v) => Ok(StackObject::Value(v)),
+            o => Ok(StackObject::Ref(o.heap_alloc(interpreter)?)),
+        }
+    }
+}
 
 impl InterpreterStackAlloc for HeapObject {
     fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
@@ -66,23 +66,19 @@ impl InterpreterHeapAlloc for StackObject {
     }
 }
 
-// impl InterpreterHeapAlloc for UnallocatedObject {
-//     fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
-//         match self {
-//             UnallocatedObject::Value(v) => HeapObject::Value(v),
-//             UnallocatedObject::Func(f) => HeapObject::Func(f),
-//             UnallocatedObject::String(s) => HeapObject::String(s),
-//             UnallocatedObject::List(head, tail) => {
-//                 let head = head.heap_alloc(interpreter)?;
-//                 let tail = tail.heap_alloc(interpreter)?;
-//                 HeapObject::List(head, tail)
-//             }
-//             UnallocatedObject::Null => {
-//                 return Err(InterpreterError::new(
-//                     InterpreterErrorKind::CannotAllocateNull,
-//                 ))
-//             }
-//         }
-//         .heap_alloc(interpreter)
-//     }
-// }
+impl InterpreterHeapAlloc for UnallocatedObject {
+    fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
+        match self {
+            UnallocatedObject::Value(v) => HeapObject::Value(v),
+            UnallocatedObject::Func(f) => HeapObject::Func(f),
+            UnallocatedObject::String(s) => HeapObject::String(s),
+            UnallocatedObject::List(head, tail) => HeapObject::List(head, tail),
+            UnallocatedObject::Null => {
+                return Err(InterpreterError::new(
+                    InterpreterErrorKind::CannotAllocateNull,
+                ))
+            }
+        }
+        .heap_alloc(interpreter)
+    }
+}
