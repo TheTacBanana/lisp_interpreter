@@ -110,19 +110,18 @@ impl GarbageCollector {
                     .filter(|i| get_strong_count(*i).filter(|c| *c <= 1).is_some())
                     .collect::<Vec<_>>();
 
-                println!("{queue:?}");
-
                 let mut to_free = Vec::new();
 
                 while !queue.is_empty() {
                     let popped = queue.pop().unwrap();
-                    println!("Popped {popped}");
-
                     match self.heap.get_heap_object(popped).unwrap() {
                         ObjectRef::Object(o) => match &*o {
                             HeapObject::List(ObjectPointer::Heap(h), ObjectPointer::Heap(t)) => {
                                 queue.push(*h.deref());
                                 queue.push(*t.deref());
+                            }
+                            HeapObject::List(ObjectPointer::Heap(h), ObjectPointer::Null) => {
+                                queue.push(*h.deref());
                             }
                             _ => (),
                         },
@@ -141,7 +140,6 @@ impl GarbageCollector {
                 for index in to_free.iter() {
                     write_lock[*index] = None;
                     free_vec.push(*index);
-                    println!("Dropped {index}")
                 }
             }
         }
