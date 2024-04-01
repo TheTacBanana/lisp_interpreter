@@ -10,13 +10,8 @@ pub trait InterpreterStackAlloc: Sized {
 }
 
 impl InterpreterStackAlloc for ObjectPointer {
-    fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
-        match self {
-            ObjectPointer::Null => Err(InterpreterError::new(
-                InterpreterErrorKind::CannotAllocateNull,
-            )),
-            p => Ok(StackObject::Ref(p)),
-        }
+    fn stack_alloc(self, _interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
+        Ok(StackObject::Ref(self))
     }
 }
 

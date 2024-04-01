@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use crate::object::{HeapObject, ObjectPointer, ObjectRef};
+use crate::{object::{HeapObject, ObjectPointer, ObjectRef}, print::InterpreterPrint, InterpreterContext};
 
 pub struct InterpreterHeap {
     pub free_slots: RwLock<Vec<usize>>,
@@ -26,7 +26,7 @@ impl InterpreterHeap {
         (heap, gc)
     }
 
-    pub fn dump(&self) {
+    pub fn dump(&self, context: &InterpreterContext) {
         println!("Heap Dump:");
         for (i, object) in self
             .store
@@ -38,7 +38,7 @@ impl InterpreterHeap {
         {
             if let (refs, Some(item)) = (Arc::strong_count(&object.1), self.get_heap_object(i)) {
                 //TODO:
-                println!("[{i}] {:?} {refs}", item)
+                println!("[{i}] {} {refs}", item.interpreter_fmt(context))
             } else {
                 println!("[{i}] Deref Failed {object:?}")
             }

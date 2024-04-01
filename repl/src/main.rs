@@ -2,8 +2,7 @@ use core::{
     error::ErrorWriter, LexerParser
 };
 use interpreter::{
-    deref::InterpreterDeref,
-    InterpreterContext,
+    deref::InterpreterDeref, print::InterpreterPrint, InterpreterContext
 };
 use rustyline::{error::ReadlineError, DefaultEditor};
 use anyhow::Result;
@@ -24,7 +23,7 @@ fn main() -> Result<()>{
                 context.start(ast);
                 if let Ok(p) = context.pop_data() {
                     let obj = p.deref(&context)?;
-                    println!("{}", obj);
+                    println!("{}", obj.interpreter_fmt(&context));
                 }
             },
             Err(ReadlineError::Interrupted) => {

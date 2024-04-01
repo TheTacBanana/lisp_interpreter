@@ -95,7 +95,7 @@ impl Rules {
 
     pub fn symbol(ch: char) -> bool {
         match ch {
-           '#' | '\'' | '`' | ',' | '.' => true,
+            '.' => true,
             _ => false,
         }
     }

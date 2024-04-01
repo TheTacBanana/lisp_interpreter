@@ -1,28 +1,17 @@
 #![feature(let_chains)]
 #![feature(mapped_lock_guards)]
 
-use std::{
-    collections::HashMap,
-    env::var,
-    error::Error,
-    ops::Deref,
-    sync::{Arc, Mutex, RwLock},
-    thread::JoinHandle,
-};
+use std::{collections::HashMap, ops::Deref, sync::Arc, thread::JoinHandle};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
-use core::{
-    error::{ErrorWriter, FormattedError},
-    parser::ast::AST,
-    token::span::Span,
-};
+use core::{error::ErrorWriter, parser::ast::AST, token::span::Span};
 use deref::InterpreterDeref;
 use error::{InterpreterError, InterpreterErrorKind};
 use frame::Frame;
 use heap::InterpreterHeap;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
 
-use crate::func::{Func, NativeFunc};
+use crate::func::Func;
 
 pub mod alloc;
 pub mod deref;
@@ -31,6 +20,7 @@ pub mod frame;
 pub mod func;
 pub mod heap;
 pub mod object;
+pub mod print;
 pub mod std_lib;
 
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
@@ -66,8 +56,8 @@ impl InterpreterContext {
         for node in ast {
             if let Err(err) = self.interpret(&node) {
                 let _ = self.error_writer.report_errors(vec![err]);
-                // self.stack_trace();
-                // self.heap_dump();
+                self.stack_trace();
+                self.heap.dump(self);
                 break;
             }
         }
@@ -101,13 +91,15 @@ impl InterpreterContext {
 
         alloc_func(self, Func::Native("car".into(), std_lib::car));
         alloc_func(self, Func::Native("cdr".into(), std_lib::cdr));
+        alloc_func(self, Func::Native("cons".into(), std_lib::cons));
+        alloc_func(self, Func::Native("empty?".into(), std_lib::empty));
 
         alloc_func(self, Func::Native("write".into(), std_lib::write));
 
-        // alloc_func(self, Func::Native("+".into(), std_lib::add));
-        // alloc_func(self, Func::Native("-".into(), std_lib::sub));
-        // alloc_func(self, Func::Native("*".into(), std_lib::mul));
-        // alloc_func(self, Func::Native("/".into(), std_lib::div));
+        alloc_func(self, Func::Native("+".into(), std_lib::add));
+        alloc_func(self, Func::Native("-".into(), std_lib::sub));
+        alloc_func(self, Func::Native("*".into(), std_lib::mul));
+        alloc_func(self, Func::Native("/".into(), std_lib::div));
 
         // alloc_func(self, Func::Native("eq".into(), std_lib::eq));
         // alloc_func(self, Func::Native("<".into(), std_lib::lt));

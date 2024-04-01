@@ -6,6 +6,7 @@ use core::{literal::Literal, parser::ast::AST, LexerParser};
 use core::token::span::TotalSpan;
 
 use crate::object::UnallocatedObject;
+use crate::print::InterpreterPrint;
 use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},
     deref::InterpreterDeref,
@@ -20,7 +21,7 @@ pub fn stack_trace(interpreter: &mut InterpreterContext, n: usize) -> Interprete
 }
 
 pub fn heap_dump(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    interpreter.heap.dump();
+    interpreter.heap.dump(&interpreter);
     Ok(())
 }
 
@@ -249,7 +250,7 @@ pub fn write(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResul
     }
     data.reverse();
     for d in data {
-        println!("{} ", d.deref(interpreter)?);
+        print!("{}", d.interpreter_fmt(interpreter));
     }
     println!();
 
