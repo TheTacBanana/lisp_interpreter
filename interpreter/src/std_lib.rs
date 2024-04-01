@@ -324,6 +324,29 @@ bin_op!(div, l, r, l / r);
 // cmp_op!(gt, l, r, l > r);
 // cmp_op!(gteq, l, r, l >= r);
 
+pub fn empty(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    if n != 1 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams {
+                expected: 1,
+                received: n,
+            },
+        ));
+    }
+
+    let val = {
+        let stack_object = interpreter.pop_data()?;
+        let list = stack_object.deref(interpreter)?;
+        match list {
+            ObjectRef::Null => true,
+            _ => false,
+        }
+    };
+
+    interpreter.push_data(StackObject::Value(Literal::Boolean(val)));
+    Ok(())
+}
+
 pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
         return Err(InterpreterError::new(
@@ -379,5 +402,32 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
     };
     let p = p.stack_alloc(interpreter)?;
     interpreter.push_data(p);
+    Ok(())
+}
+
+pub fn cons(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    if n != 2 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams {
+                expected: 1,
+                received: n,
+            },
+        ));
+    }
+
+    let ptr = {
+        let tail = interpreter.pop_data()?;
+        let head = interpreter.pop_data()?;
+
+        let obj = if let StackObject::Ref(ObjectPointer::Null) = head {
+            UnallocatedObject::List(head.heap_alloc(interpreter)?, ObjectPointer::Null)
+        } else {
+            UnallocatedObject::List(head.heap_alloc(interpreter)?, tail.heap_alloc(interpreter)?)
+        };
+        obj.stack_alloc(interpreter)?
+    };
+
+    interpreter.push_data(ptr);
+
     Ok(())
 }
