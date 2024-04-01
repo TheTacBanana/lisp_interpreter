@@ -19,6 +19,15 @@ impl Func {
     pub fn to_string(&self) -> String {
         format!("{self}")
     }
+
+    pub fn func_type(&self) -> usize {
+        match self {
+            Func::Native(_, _) => 0,
+            Func::TokenNative(_, _) => 1,
+            Func::Macro(_, _) => 2,
+            Func::Defined(_, _, _) => 3,
+        }
+    }
 }
 
 impl std::fmt::Display for Func {

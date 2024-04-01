@@ -1,4 +1,8 @@
-use std::sync::Arc;
+use std::{
+    fmt::{Debug, Display},
+    ops::Deref,
+    sync::{Arc, MappedRwLockReadGuard, MappedRwLockWriteGuard},
+};
 
 use core::literal::Literal;
 
@@ -19,7 +23,7 @@ impl std::fmt::Display for StackObject {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ObjectPointer {
     #[default]
     Null,
@@ -45,47 +49,56 @@ pub enum HeapObject {
     Func(Func),
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
-pub enum ObjectRef<'a> {
-    Null,
-    Value(Literal),
-    Func(&'a Func),
-    String(&'a String),
-    List(Box<ObjectRef<'a>>, Box<ObjectRef<'a>>),
-}
-
-impl std::fmt::Display for ObjectRef<'_> {
+impl std::fmt::Display for HeapObject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ObjectRef::List(head, tail) => write!(f, "{head} {tail}"),
-            ObjectRef::Value(v) => write!(f, "{v}"),
-            ObjectRef::Func(fid) => write!(f, "{fid}"),
-            ObjectRef::String(s) => write!(f, "{s}"),
-            ObjectRef::Null => write!(f, "()"),
-        }
-    }
-}
-
-impl ObjectRef<'_> {
-    pub fn clone_to_unallocated(&self) -> UnallocatedObject {
-        match self {
-            ObjectRef::Value(v) => UnallocatedObject::Value(*v),
-            ObjectRef::Func(f) => UnallocatedObject::Func((*f).clone()),
-            ObjectRef::String(s) => UnallocatedObject::String((*s).clone()),
-            ObjectRef::List(x, xs) => UnallocatedObject::List(
-                Box::new((*x).clone_to_unallocated()),
-                Box::new((*xs).clone_to_unallocated()),
-            ),
-            ObjectRef::Null => UnallocatedObject::Null,
+            o => write!(f, "{o}"),
+            // HeapObject::String(_) => todo!(),
+            // HeapObject::List(_, _) => todo!(),
+            // HeapObject::Func(_) => todo!(),
         }
     }
 }
 
 #[derive(Debug)]
-pub enum UnallocatedObject {
-    Value(Literal),
-    Func(Func),
-    String(String),
-    List(Box<UnallocatedObject>, Box<UnallocatedObject>),
+pub enum ObjectRef<'a> {
     Null,
+    Value(Literal),
+    Object(MappedRwLockReadGuard<'a, HeapObject>),
 }
+
+impl<'a> Into<ObjectRef<'a>> for MappedRwLockReadGuard<'a, HeapObject> {
+    fn into(self) -> ObjectRef<'a> {
+        ObjectRef::Object(self)
+    }
+}
+
+impl std::fmt::Display for ObjectRef<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ObjectRef::Object(o) => write!(f, "{}", o.deref()),
+            o => write!(f, "{}", o),
+        }
+    }
+}
+
+// #[derive(Debug)]
+// pub enum ObjectRef<'a> {
+//     Null,
+//     Value(Literal),
+//     Func(InterpreterObjectRef<'a, Func>),
+//     String(InterpreterObjectRef<'a, String>),
+//     List(ObjectPointer, ObjectPointer),
+// }
+
+// impl std::fmt::Display for ObjectRef<'_> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             ObjectRef::List(head, tail) => write!(f, "{head} {tail}"),
+//             ObjectRef::Value(v) => write!(f, "{v}"),
+//             ObjectRef::Func(fid) => write!(f, "{fid}"),
+//             ObjectRef::String(s) => write!(f, "{s}"),
+//             ObjectRef::Null => write!(f, "()"),
+//         }
+//     }
+// }

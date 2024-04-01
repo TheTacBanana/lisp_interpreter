@@ -9,7 +9,7 @@ use crate::{
     alloc::{InterpreterHeapAlloc, InterpreterStackAlloc},
     deref::InterpreterDeref,
     func::Func,
-    object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject},
+    object::{HeapObject, ObjectPointer, ObjectRef, StackObject},
     InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
@@ -19,7 +19,7 @@ pub fn stack_trace(interpreter: &mut InterpreterContext, n: usize) -> Interprete
 }
 
 pub fn heap_dump(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    interpreter.heap_dump();
+    interpreter.heap.dump();
     Ok(())
 }
 
@@ -229,7 +229,7 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         }
     };
 
-    let obj = UnallocatedObject::Func(Func::Defined(
+    let obj = HeapObject::Func(Func::Defined(
         None,
         param_names,
         ast.next().unwrap().clone(),
@@ -248,80 +248,80 @@ pub fn write(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResul
     }
     data.reverse();
     for d in data {
-        print!("{} ", d.deref(interpreter)?);
+        println!("{} ", d.deref(interpreter)?);
     }
     println!();
 
     Ok(())
 }
 
-macro_rules! bin_op {
-    ($name:ident, $l:ident, $r:ident, $calc:expr) => {
-        pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-            let mut objs = Vec::new();
-            for _ in 0..n {
-                objs.push(interpreter.pop_data()?);
-            }
-            objs.reverse();
+// macro_rules! bin_op {
+//     ($name:ident, $l:ident, $r:ident, $calc:expr) => {
+//         pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+//             let mut objs = Vec::new();
+//             for _ in 0..n {
+//                 objs.push(interpreter.pop_data()?);
+//             }
+//             objs.reverse();
 
-            let drain = objs.drain(..);
-            let out = drain.fold(None, |out, obj| {
-                match (out, obj.deref(interpreter).unwrap()) {
-                    (None, v) => Some(v.clone_to_unallocated()),
-                    (
-                        Some(UnallocatedObject::Value(Literal::Numeric($l))),
-                        ObjectRef::Value(Literal::Numeric($r)),
-                    ) => Some(UnallocatedObject::Value(Literal::Numeric($calc))),
-                    _ => panic!(),
-                }
-            });
+//             let drain = objs.drain(..);
+//             let out = drain.fold(None, |out, obj| {
+//                 match (out, obj.deref(interpreter).unwrap()) {
+//                     (None, v) => Some(v.clone_to_unallocated()),
+//                     (
+//                         Some(UnallocatedObject::Value(Literal::Numeric($l))),
+//                         ObjectRef::Value(Literal::Numeric($r)),
+//                     ) => Some(UnallocatedObject::Value(Literal::Numeric($calc))),
+//                     _ => panic!(),
+//                 }
+//             });
 
-            let stack_obj = out
-                .ok_or(InterpreterError::new(InterpreterErrorKind::FailedOperation))?
-                .stack_alloc(interpreter)?;
+//             let stack_obj = out
+//                 .ok_or(InterpreterError::new(InterpreterErrorKind::FailedOperation))?
+//                 .stack_alloc(interpreter)?;
 
-            interpreter.push_data(stack_obj);
+//             interpreter.push_data(stack_obj);
 
-            return Ok(());
-        }
-    };
-}
+//             return Ok(());
+//         }
+//     };
+// }
 
-bin_op!(add, l, r, l + r);
-bin_op!(sub, l, r, l - r);
-bin_op!(mul, l, r, l * r);
-bin_op!(div, l, r, l / r);
+// bin_op!(add, l, r, l + r);
+// bin_op!(sub, l, r, l - r);
+// bin_op!(mul, l, r, l * r);
+// bin_op!(div, l, r, l / r);
 
-macro_rules! cmp_op {
-    ($name:ident, $l:ident, $r:ident, $calc:expr) => {
-        pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-            let mut objs = Vec::new();
-            for _ in 0..n {
-                objs.push(interpreter.pop_data()?);
-            }
-            objs.reverse();
+// macro_rules! cmp_op {
+//     ($name:ident, $l:ident, $r:ident, $calc:expr) => {
+//         pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+//             let mut objs = Vec::new();
+//             for _ in 0..n {
+//                 objs.push(interpreter.pop_data()?);
+//             }
+//             objs.reverse();
 
-            let drain = objs.windows(2);
-            let out = drain.fold(Ok(true), |out, objs| match out {
-                Ok(out) => Ok(out && {
-                    let $l = objs[0].deref(interpreter)?;
-                    let $r = objs[1].deref(interpreter)?;
-                    $calc
-                }),
-                e => e,
-            });
-            interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
+//             let drain = objs.windows(2);
+//             let out = drain.fold(Ok(true), |out, objs| match out {
+//                 Ok(out) => Ok(out && {
+//                     let $l = objs[0].deref(interpreter)?;
+//                     let $r = objs[1].deref(interpreter)?;
+//                     $calc
+//                 }),
+//                 e => e,
+//             });
+//             interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
 
-            Ok(())
-        }
-    };
-}
+//             Ok(())
+//         }
+//     };
+// }
 
-cmp_op!(eq, l, r, l == r);
-cmp_op!(lt, l, r, l < r);
-cmp_op!(lteq, l, r, l <= r);
-cmp_op!(gt, l, r, l > r);
-cmp_op!(gteq, l, r, l >= r);
+// cmp_op!(eq, l, r, l == r);
+// cmp_op!(lt, l, r, l < r);
+// cmp_op!(lteq, l, r, l <= r);
+// cmp_op!(gt, l, r, l > r);
+// cmp_op!(gteq, l, r, l >= r);
 
 pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
@@ -333,38 +333,22 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
         ));
     }
 
-    let list = interpreter.pop_data()?;
-    match list {
-        StackObject::Value(_) => interpreter.push_data(list),
-        StackObject::Ref(p) => match p {
-            ObjectPointer::Null => {
-                return Err(InterpreterError::new(InterpreterErrorKind::NullDeref))
-            }
-            ObjectPointer::Stack(i, p) => {
-                interpreter.push_data(
-                    interpreter
-                        .frame_stack
-                        .get(i)
-                        .and_then(|f| f.get_local_by_index(p))
-                        .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?.clone(),
-                );
-            }
-            ObjectPointer::Heap(p) => {
-                match &interpreter
-                    .heap
-                    .get(*p.deref())
-                    .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?.0
-                {
-                    HeapObject::List(h, _) => {
-                        let p = h.clone().stack_alloc(interpreter)?;
-                        interpreter.push_data(p);
-                    }
-                    _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
-                }
-            }
-        },
-    }
+    let p = {
+        let stack_object = interpreter.pop_data()?;
+        let list = stack_object.deref(interpreter)?;
+        let p = match list {
+            // ObjectRef::Null => todo!(),
+            // ObjectRef::Value(_) => todo!(),
+            ObjectRef::Object(o) => match &*o.deref() {
+                HeapObject::List(h, _) => h.clone(),
+                _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
+            },
+            _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
+        };
+        p
+    };
+    let p = p.stack_alloc(interpreter)?;
+    interpreter.push_data(p);
     Ok(())
 }
 
@@ -378,33 +362,21 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
         ));
     }
 
-    let list = interpreter.pop_data()?;
-    match list {
-        StackObject::Value(_) => {
-            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))
-        }
-        StackObject::Ref(p) => match p {
-            ObjectPointer::Null => {
-                return Err(InterpreterError::new(InterpreterErrorKind::NullDeref))
-            }
-            ObjectPointer::Stack(_, _) => {
-                todo!()
+    let p = {
+        let stack_object = interpreter.pop_data()?;
+        let list = stack_object.deref(interpreter)?;
+        let p = match list {
+            // ObjectRef::Null => todo!(),
+            // ObjectRef::Value(_) => todo!(),
+            ObjectRef::Object(o) => match &*o.deref() {
+                HeapObject::List(_, t) => t.clone(),
+                _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
             },
-            ObjectPointer::Heap(p) => {
-                match &interpreter
-                    .heap
-                    .get(*p.deref())
-                    .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::new(InterpreterErrorKind::NullDeref))?.0
-                {
-                    HeapObject::List(_, t) => {
-                        let p = t.clone().stack_alloc(interpreter)?;
-                        interpreter.push_data(p);
-                    }
-                    _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
-                }
-            }
-        },
-    }
+            _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
+        };
+        p
+    };
+    let p = p.stack_alloc(interpreter)?;
+    interpreter.push_data(p);
     Ok(())
 }

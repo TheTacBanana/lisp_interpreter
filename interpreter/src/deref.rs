@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use crate::{
-    object::{HeapObject, ObjectPointer, ObjectRef, StackObject}, InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult
+    object::{ObjectPointer, ObjectRef, StackObject}, InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult
 };
 
 pub trait InterpreterDeref {
@@ -14,15 +14,14 @@ impl InterpreterDeref for ObjectPointer {
         &'a self,
         interpreter: &'a InterpreterContext,
     ) -> InterpreterResult<ObjectRef<'a>> {
+        println!("{self}");
         match self {
-            ObjectPointer::Null => Ok(ObjectRef::Null), //TODO:
+            ObjectPointer::Null => Ok(ObjectRef::Null),
             ObjectPointer::Heap(p) => {
-                let obj = interpreter
+                interpreter
                     .heap
-                    .get(*p.deref())
-                    .and_then(|x| x.as_ref())
-                    .ok_or(InterpreterError::new(InterpreterErrorKind::PointerDoesNotExist))?;
-                obj.0.deref(interpreter)
+                    .get_heap_object(*p.deref())
+                    .ok_or(InterpreterError::new(InterpreterErrorKind::PointerDoesNotExist))
             }
             ObjectPointer::Stack(frame, index) => {
                 let frame = interpreter
@@ -43,29 +42,10 @@ impl InterpreterDeref for StackObject {
         &'a self,
         interpreter: &'a InterpreterContext,
     ) -> InterpreterResult<ObjectRef<'a>> {
+        println!("{self:?}");
         match self {
             StackObject::Value(v) => Ok(ObjectRef::Value(*v)),
             StackObject::Ref(p) => p.deref(interpreter),
-        }
-    }
-}
-
-impl InterpreterDeref for HeapObject {
-    fn deref<'a>(
-        &'a self,
-        interpreter: &'a InterpreterContext,
-    ) -> InterpreterResult<ObjectRef<'a>> {
-        match self {
-            HeapObject::Value(v) => Ok(ObjectRef::Value(*v)),
-            HeapObject::String(s) => Ok(ObjectRef::String(s)),
-            HeapObject::Func(f) => Ok(ObjectRef::Func(f)),
-            HeapObject::List(x, xs) => Ok(ObjectRef::List(Box::new(x.deref(interpreter)?), {
-                if *xs == ObjectPointer::Null {
-                    Box::new(ObjectRef::Null)
-                } else {
-                    Box::new(xs.deref(interpreter)?)
-                }
-            })),
         }
     }
 }

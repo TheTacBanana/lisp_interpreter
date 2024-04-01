@@ -1,6 +1,14 @@
 #![feature(let_chains)]
+#![feature(mapped_lock_guards)]
 
-use std::{collections::HashMap, error::Error, ops::Deref, sync::Arc};
+use std::{
+    collections::HashMap,
+    env::var,
+    error::Error,
+    ops::Deref,
+    sync::{Arc, Mutex, RwLock},
+    thread::JoinHandle,
+};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use core::{
@@ -11,15 +19,17 @@ use core::{
 use deref::InterpreterDeref;
 use error::{InterpreterError, InterpreterErrorKind};
 use frame::Frame;
-use object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject};
+use heap::InterpreterHeap;
+use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
 
-use crate::func::Func;
+use crate::func::{Func, NativeFunc};
 
 pub mod alloc;
 pub mod deref;
 pub mod error;
 pub mod frame;
 pub mod func;
+pub mod heap;
 pub mod object;
 pub mod std_lib;
 
@@ -32,17 +42,21 @@ pub struct InterpreterContext {
     pub data_stack: Vec<StackObject>,
 
     pub ident_mapping: HashMap<String, ObjectPointer>,
-    pub heap: Vec<Option<(HeapObject, Arc<usize>)>>,
+    pub heap: Arc<InterpreterHeap>,
+    pub gc_thread: JoinHandle<()>,
 }
 
 impl InterpreterContext {
     pub fn new(error_writer: ErrorWriter) -> Self {
+        let (heap, gc) = InterpreterHeap::new();
+
         let mut s = Self {
             error_writer,
             frame_stack: Vec::new(),
             data_stack: Vec::new(),
             ident_mapping: HashMap::new(),
-            heap: Vec::new(),
+            heap,
+            gc_thread: gc.spawn_thread(),
         };
         s.with_std();
         s
@@ -90,16 +104,16 @@ impl InterpreterContext {
 
         alloc_func(self, Func::Native("write".into(), std_lib::write));
 
-        alloc_func(self, Func::Native("+".into(), std_lib::add));
-        alloc_func(self, Func::Native("-".into(), std_lib::sub));
-        alloc_func(self, Func::Native("*".into(), std_lib::mul));
-        alloc_func(self, Func::Native("/".into(), std_lib::div));
+        // alloc_func(self, Func::Native("+".into(), std_lib::add));
+        // alloc_func(self, Func::Native("-".into(), std_lib::sub));
+        // alloc_func(self, Func::Native("*".into(), std_lib::mul));
+        // alloc_func(self, Func::Native("/".into(), std_lib::div));
 
-        alloc_func(self, Func::Native("eq".into(), std_lib::eq));
-        alloc_func(self, Func::Native("<".into(), std_lib::lt));
-        alloc_func(self, Func::Native("<=".into(), std_lib::lteq));
-        alloc_func(self, Func::Native(">".into(), std_lib::gt));
-        alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
+        // alloc_func(self, Func::Native("eq".into(), std_lib::eq));
+        // alloc_func(self, Func::Native("<".into(), std_lib::lt));
+        // alloc_func(self, Func::Native("<=".into(), std_lib::lteq));
+        // alloc_func(self, Func::Native(">".into(), std_lib::gt));
+        // alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
     }
 
     pub fn stack_trace(&self) {
@@ -107,23 +121,6 @@ impl InterpreterContext {
         for s in self.frame_stack.iter() {
             println!("{s}")
         }
-    }
-
-    pub fn heap_dump(&self) {
-        println!("Heap Dump:");
-        for (i, o) in self
-            .heap
-            .iter()
-            .enumerate()
-            .filter_map(|(i, o)| o.as_ref().map(|o| (i, o)))
-        {
-            if let (refs, Ok(item)) = (Arc::strong_count(&o.1), o.0.deref(self)) {
-                println!("[{i}] {} {refs}", item)
-            } else {
-                println!("[{i}] Deref Failed {o:?}")
-            }
-        }
-        println!()
     }
 
     pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
@@ -138,7 +135,7 @@ impl InterpreterContext {
             AST::Literal(lit, _) => self.push_data(StackObject::Value(*lit)),
             AST::EmptyList(_) => self.push_data(StackObject::Ref(ObjectPointer::Null)),
             AST::StringLiteral(s, _) => {
-                let p = UnallocatedObject::String(s.clone()).stack_alloc(self)?;
+                let p = HeapObject::String(s.clone()).stack_alloc(self)?;
                 self.push_data(p)
             }
             AST::List(head, tail, _) => {
@@ -176,16 +173,25 @@ impl InterpreterContext {
             }
         };
 
-        let deref_pointer = pointer.deref(self)?;
-        let ObjectRef::Func(func) = deref_pointer else {
-            return Err(InterpreterError::spanned(
-                InterpreterErrorKind::CannotCall(deref_pointer.to_string()),
-                span,
-            ));
+        let func = {
+            let ObjectRef::Object(lock) = pointer.deref(self)? else {
+                return Err(InterpreterError::spanned(
+                    InterpreterErrorKind::CannotCall(pointer.deref(self).unwrap().to_string()),
+                    span,
+                ));
+            };
+            let HeapObject::Func(f) = lock.deref() else {
+                return Err(InterpreterError::spanned(
+                    InterpreterErrorKind::CannotCall(lock.deref().to_string()),
+                    span,
+                ));
+            };
+            f as *const Func
         };
 
-        let func_name = func.to_string();
-        let func: *const Func = func;
+        println!("{func:?}");
+
+        let func_name = unsafe { func.as_ref().unwrap().to_string() };
         let frame = Frame::new(self.frame_stack.len(), func_name);
         self.frame_stack.push(frame);
 
@@ -224,7 +230,7 @@ impl InterpreterContext {
                         frame.insert_local(name, obj);
                     });
 
-                    self.interpret(ast)
+                    self.interpret(&ast)
                 }
                 Func::TokenNative(_, native_special_func) => {
                     let params = std::mem::take(&mut body);
@@ -237,7 +243,10 @@ impl InterpreterContext {
                 }
             }
         };
+
+        println!(":3");
         call_func().map_err(|e| e.add_if_not_spanned(op.span()))?;
+        println!(":3");
 
         self.pop_frame()?;
 

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject},
+    object::{HeapObject, ObjectPointer, StackObject},
     InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
@@ -20,14 +20,14 @@ impl InterpreterStackAlloc for ObjectPointer {
     }
 }
 
-impl InterpreterStackAlloc for UnallocatedObject {
-    fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
-        match self {
-            UnallocatedObject::Value(v) => Ok(StackObject::Value(v)),
-            o => Ok(StackObject::Ref(o.heap_alloc(interpreter)?)),
-        }
-    }
-}
+// impl InterpreterStackAlloc for UnallocatedObject {
+//     fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
+//         match self {
+//             UnallocatedObject::Value(v) => Ok(StackObject::Value(v)),
+//             o => Ok(StackObject::Ref(o.heap_alloc(interpreter)?)),
+//         }
+//     }
+// }
 
 impl InterpreterStackAlloc for HeapObject {
     fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
@@ -53,31 +53,7 @@ pub trait InterpreterHeapAlloc: Sized {
 
 impl InterpreterHeapAlloc for HeapObject {
     fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
-        let id = interpreter
-            .heap
-            .iter()
-            .enumerate()
-            .find_map(|(i, o)| {
-                match o {
-                    None => return Some(i),
-                    Some((_, handle)) => {
-                        if Arc::strong_count(handle) == 1 {
-                            return Some(i);
-                        }
-                    }
-                }
-                None
-            })
-            .unwrap_or(interpreter.heap.len());
-
-        if id >= interpreter.heap.len() {
-            let extend = ((interpreter.heap.len())..=id + 1).map(|_| None);
-            interpreter.heap.extend(extend);
-        }
-
-        let mut heap_index = interpreter.heap.get_mut(id);
-        let (_, handle) = heap_index.as_mut().unwrap().insert((self, Arc::new(id)));
-        Ok(ObjectPointer::Heap(handle.clone()))
+        Ok(interpreter.heap.alloc_heap_object(self))
     }
 }
 
@@ -90,23 +66,23 @@ impl InterpreterHeapAlloc for StackObject {
     }
 }
 
-impl InterpreterHeapAlloc for UnallocatedObject {
-    fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
-        match self {
-            UnallocatedObject::Value(v) => HeapObject::Value(v),
-            UnallocatedObject::Func(f) => HeapObject::Func(f),
-            UnallocatedObject::String(s) => HeapObject::String(s),
-            UnallocatedObject::List(head, tail) => {
-                let head = head.heap_alloc(interpreter)?;
-                let tail = tail.heap_alloc(interpreter)?;
-                HeapObject::List(head, tail)
-            }
-            UnallocatedObject::Null => {
-                return Err(InterpreterError::new(
-                    InterpreterErrorKind::CannotAllocateNull,
-                ))
-            }
-        }
-        .heap_alloc(interpreter)
-    }
-}
+// impl InterpreterHeapAlloc for UnallocatedObject {
+//     fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
+//         match self {
+//             UnallocatedObject::Value(v) => HeapObject::Value(v),
+//             UnallocatedObject::Func(f) => HeapObject::Func(f),
+//             UnallocatedObject::String(s) => HeapObject::String(s),
+//             UnallocatedObject::List(head, tail) => {
+//                 let head = head.heap_alloc(interpreter)?;
+//                 let tail = tail.heap_alloc(interpreter)?;
+//                 HeapObject::List(head, tail)
+//             }
+//             UnallocatedObject::Null => {
+//                 return Err(InterpreterError::new(
+//                     InterpreterErrorKind::CannotAllocateNull,
+//                 ))
+//             }
+//         }
+//         .heap_alloc(interpreter)
+//     }
+// }
