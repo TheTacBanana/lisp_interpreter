@@ -51,6 +51,7 @@ pub enum InterpreterErrorKind {
     CannotAllocateNull, // TODO:
     PointerDoesNotExist, // TODO:
     FailedOperation, // TODO:
+    CannotCompare(String, String),
 
     // Stack Related
     EmptyStack,
@@ -116,6 +117,10 @@ impl std::fmt::Display for InterpreterErrorKind {
                 &temp
             }
             InterpreterErrorKind::ErrorInParsingImport => "Parse error in import",
+            InterpreterErrorKind::CannotCompare(l, r) => {
+                temp = format!("Cannot compare '{}' and '{}'", l, r);
+                &temp
+            },
         };
         write!(f, "{s}")
     }

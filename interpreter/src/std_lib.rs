@@ -296,7 +296,7 @@ bin_op!(mul, l, r, l * r);
 bin_op!(div, l, r, l / r);
 
 macro_rules! cmp_op {
-    ($name:ident, $l:ident, $r:ident, $calc:expr) => {
+    ($name:ident, $l:ident, $r:ident, $i:ident, $calc:expr) => {
         pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
             let mut objs = Vec::new();
             for _ in 0..n {
@@ -307,16 +307,10 @@ macro_rules! cmp_op {
             let drain = objs.windows(2);
             let out = drain.fold(Ok(true), |out, objs| match out {
                 Ok(out) => Ok(out && {
-                    match (objs[0].deref(interpreter)?, objs[1].deref(interpreter)?) {
-                        (ObjectRef::Null, ObjectRef::Null) => true,
-                        (ObjectRef::Value($l), ObjectRef::Value($r)) => $calc,
-                        (ObjectRef::Object(l), ObjectRef::Object(r)) => {
-                            let $l = &*l.deref();
-                            let $r = &*r.deref();
-                            $calc
-                        }
-                        _ => false,
-                    }
+                    let $l = &objs[0];
+                    let $r = &objs[1];
+                    let $i = &interpreter;
+                    $calc
                 }),
                 e => e,
             });
@@ -327,27 +321,11 @@ macro_rules! cmp_op {
     };
 }
 
-pub fn eq(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    let mut objs = Vec::new();
-    for _ in 0..n {
-        objs.push(interpreter.pop_data()?);
-    }
-    objs.reverse();
-    let drain = objs.windows(2);
-    let out = drain.fold(Ok(true), |out, objs| match out {
-        Ok(out) => Ok(out && {
-            objs[0].object_eq(&objs[1], interpreter)?
-        }),
-        e => e,
-    });
-    interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
-    Ok(())
-}
-
-// cmp_op!(lt, l, r, l < r);
-// cmp_op!(lteq, l, r, l <= r);
-// cmp_op!(gt, l, r, l > r);
-// cmp_op!(gteq, l, r, l >= r);
+cmp_op!(eq, l, r, i, l.object_eq(&r, i)?);
+cmp_op!(lt, l, r, i, l.object_cmp(&r, i)?.is_lt());
+cmp_op!(lteq, l, r, i, l.object_cmp(&r, i)?.is_le());
+cmp_op!(gt, l, r, i, l.object_cmp(&r, i)?.is_gt());
+cmp_op!(gteq, l, r, i, l.object_cmp(&r, i)?.is_ge());
 
 pub fn empty(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {

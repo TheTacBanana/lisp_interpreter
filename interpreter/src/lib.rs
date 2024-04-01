@@ -103,10 +103,10 @@ impl InterpreterContext {
         alloc_func(self, Func::Native("/".into(), std_lib::div));
 
         alloc_func(self, Func::Native("eq".into(), std_lib::eq));
-        // alloc_func(self, Func::Native("<".into(), std_lib::lt));
-        // alloc_func(self, Func::Native("<=".into(), std_lib::lteq));
-        // alloc_func(self, Func::Native(">".into(), std_lib::gt));
-        // alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
+        alloc_func(self, Func::Native("<".into(), std_lib::lt));
+        alloc_func(self, Func::Native("<=".into(), std_lib::lteq));
+        alloc_func(self, Func::Native(">".into(), std_lib::gt));
+        alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
     }
 
     pub fn stack_trace(&self) {

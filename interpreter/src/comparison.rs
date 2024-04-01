@@ -1,13 +1,21 @@
-use std::ops::Deref;
+use std::{cmp::Ordering, ops::Deref};
 
 use crate::{
     deref::InterpreterDeref,
+    error::{InterpreterError, InterpreterErrorKind},
     object::{HeapObject, ObjectPointer, ObjectRef, StackObject},
+    print::InterpreterPrint,
     InterpreterContext, InterpreterResult,
 };
 
 pub trait InterpreterComparison {
     fn object_eq(&self, rhs: &Self, interpreter: &InterpreterContext) -> InterpreterResult<bool>;
+
+    fn object_cmp(
+        &self,
+        rhs: &Self,
+        interpreter: &InterpreterContext,
+    ) -> InterpreterResult<Ordering>;
 }
 
 impl InterpreterComparison for StackObject {
@@ -19,6 +27,18 @@ impl InterpreterComparison for StackObject {
                 interpreter,
             )?)
     }
+
+    fn object_cmp(
+        &self,
+        rhs: &Self,
+        interpreter: &InterpreterContext,
+    ) -> InterpreterResult<Ordering> {
+        InterpreterComparison::object_cmp(
+            &self.deref(interpreter)?,
+            &rhs.deref(interpreter)?,
+            interpreter,
+        )
+    }
 }
 
 impl InterpreterComparison for ObjectPointer {
@@ -29,6 +49,18 @@ impl InterpreterComparison for ObjectPointer {
                 &rhs.deref(interpreter)?,
                 interpreter,
             )?)
+    }
+
+    fn object_cmp(
+        &self,
+        rhs: &Self,
+        interpreter: &InterpreterContext,
+    ) -> InterpreterResult<Ordering> {
+        InterpreterComparison::object_cmp(
+            &self.deref(interpreter)?,
+            &rhs.deref(interpreter)?,
+            interpreter,
+        )
     }
 }
 
@@ -44,6 +76,20 @@ impl InterpreterComparison for HeapObject {
             _ => Ok(false),
         }
     }
+
+    fn object_cmp(
+        &self,
+        rhs: &Self,
+        interpreter: &InterpreterContext,
+    ) -> InterpreterResult<Ordering> {
+        match (self, rhs) {
+            (HeapObject::Value(l), HeapObject::Value(r)) => Ok(l.cmp(r)),
+            (l, r) => Err(InterpreterError::new(InterpreterErrorKind::CannotCompare(
+                l.interpreter_fmt(interpreter),
+                r.interpreter_fmt(interpreter),
+            ))),
+        }
+    }
 }
 
 impl InterpreterComparison for ObjectRef<'_> {
@@ -57,6 +103,25 @@ impl InterpreterComparison for ObjectRef<'_> {
                 l.object_eq(r, interpreter)
             }
             _ => Ok(false),
+        }
+    }
+
+    fn object_cmp(
+        &self,
+        rhs: &Self,
+        interpreter: &InterpreterContext,
+    ) -> InterpreterResult<Ordering> {
+        match (self, rhs) {
+            (ObjectRef::Value(l), ObjectRef::Value(r)) => Ok(l.cmp(r)),
+            (ObjectRef::Object(l), ObjectRef::Object(r)) => {
+                let l = &*l.deref();
+                let r = &*r.deref();
+                l.object_cmp(r, interpreter)
+            }
+            (l, r) => Err(InterpreterError::new(InterpreterErrorKind::CannotCompare(
+                l.interpreter_fmt(interpreter),
+                r.interpreter_fmt(interpreter),
+            ))),
         }
     }
 }
