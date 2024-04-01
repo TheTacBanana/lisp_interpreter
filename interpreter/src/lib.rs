@@ -15,6 +15,7 @@ use crate::func::Func;
 
 pub mod alloc;
 pub mod deref;
+pub mod comparison;
 pub mod error;
 pub mod frame;
 pub mod func;
@@ -101,7 +102,7 @@ impl InterpreterContext {
         alloc_func(self, Func::Native("*".into(), std_lib::mul));
         alloc_func(self, Func::Native("/".into(), std_lib::div));
 
-        // alloc_func(self, Func::Native("eq".into(), std_lib::eq));
+        alloc_func(self, Func::Native("eq".into(), std_lib::eq));
         // alloc_func(self, Func::Native("<".into(), std_lib::lt));
         // alloc_func(self, Func::Native("<=".into(), std_lib::lteq));
         // alloc_func(self, Func::Native(">".into(), std_lib::gt));

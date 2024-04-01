@@ -5,6 +5,7 @@ use core::{literal::Literal, parser::ast::AST, LexerParser};
 
 use core::token::span::TotalSpan;
 
+use crate::comparison::InterpreterComparison;
 use crate::object::UnallocatedObject;
 use crate::print::InterpreterPrint;
 use crate::{
@@ -294,32 +295,55 @@ bin_op!(sub, l, r, l - r);
 bin_op!(mul, l, r, l * r);
 bin_op!(div, l, r, l / r);
 
-// macro_rules! cmp_op {
-//     ($name:ident, $l:ident, $r:ident, $calc:expr) => {
-//         pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-//             let mut objs = Vec::new();
-//             for _ in 0..n {
-//                 objs.push(interpreter.pop_data()?);
-//             }
-//             objs.reverse();
+macro_rules! cmp_op {
+    ($name:ident, $l:ident, $r:ident, $calc:expr) => {
+        pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+            let mut objs = Vec::new();
+            for _ in 0..n {
+                objs.push(interpreter.pop_data()?);
+            }
+            objs.reverse();
 
-//             let drain = objs.windows(2);
-//             let out = drain.fold(Ok(true), |out, objs| match out {
-//                 Ok(out) => Ok(out && {
-//                     let $l = objs[0].deref(interpreter)?;
-//                     let $r = objs[1].deref(interpreter)?;
-//                     $calc
-//                 }),
-//                 e => e,
-//             });
-//             interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
+            let drain = objs.windows(2);
+            let out = drain.fold(Ok(true), |out, objs| match out {
+                Ok(out) => Ok(out && {
+                    match (objs[0].deref(interpreter)?, objs[1].deref(interpreter)?) {
+                        (ObjectRef::Null, ObjectRef::Null) => true,
+                        (ObjectRef::Value($l), ObjectRef::Value($r)) => $calc,
+                        (ObjectRef::Object(l), ObjectRef::Object(r)) => {
+                            let $l = &*l.deref();
+                            let $r = &*r.deref();
+                            $calc
+                        }
+                        _ => false,
+                    }
+                }),
+                e => e,
+            });
+            interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
 
-//             Ok(())
-//         }
-//     };
-// }
+            Ok(())
+        }
+    };
+}
 
-// cmp_op!(eq, l, r, l == r);
+pub fn eq(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+    let mut objs = Vec::new();
+    for _ in 0..n {
+        objs.push(interpreter.pop_data()?);
+    }
+    objs.reverse();
+    let drain = objs.windows(2);
+    let out = drain.fold(Ok(true), |out, objs| match out {
+        Ok(out) => Ok(out && {
+            objs[0].object_eq(&objs[1], interpreter)?
+        }),
+        e => e,
+    });
+    interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
+    Ok(())
+}
+
 // cmp_op!(lt, l, r, l < r);
 // cmp_op!(lteq, l, r, l <= r);
 // cmp_op!(gt, l, r, l > r);
