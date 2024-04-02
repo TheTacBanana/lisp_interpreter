@@ -64,10 +64,10 @@ impl InterpreterHeapAlloc for StackObject {
 impl InterpreterHeapAlloc for UnallocatedObject {
     fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
         match self {
-            UnallocatedObject::Value(v) => HeapObject::Value(v),
             UnallocatedObject::Func(f) => HeapObject::Func(f),
             UnallocatedObject::String(s) => HeapObject::String(s),
             UnallocatedObject::List(head, tail) => HeapObject::List(head, tail),
+            UnallocatedObject::Value(v) => HeapObject::Value(v),
             UnallocatedObject::Null => {
                 return Err(InterpreterError::new(
                     InterpreterErrorKind::CannotAllocateNull,

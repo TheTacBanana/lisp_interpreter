@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use crate::{object::StackObject, ObjectPointer};
 
 pub struct Frame {
-    name: String,
-    stack_index: usize,
-    ident_mapping: HashMap<String, usize>,
-    locals: Vec<Option<StackObject>>,
+    pub name: String,
+    pub stack_index: usize,
+    pub ident_mapping: HashMap<String, usize>,
+    pub locals: Vec<Option<StackObject>>,
 }
 
 impl Frame {
@@ -50,6 +50,10 @@ impl Frame {
         let _ = self.locals.get_mut(id).as_mut().unwrap().insert(obj);
         ObjectPointer::Stack(self.stack_index, id)
     }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl std::fmt::Display for Frame {
@@ -57,7 +61,7 @@ impl std::fmt::Display for Frame {
         writeln!(f, "Frame[{}]: {}", self.stack_index, self.name)?;
 
         for (ident, i) in self.ident_mapping.iter() {
-            writeln!(f, "{ident}: {}", self.locals.get(*i).unwrap().clone().unwrap())?
+            writeln!(f, "{ident:?}: {:?}", self.locals.get(*i).unwrap().clone().unwrap())?
         }
         Ok(())
     }

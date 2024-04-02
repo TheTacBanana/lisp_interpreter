@@ -57,8 +57,8 @@ impl InterpreterContext {
         for node in ast {
             if let Err(err) = self.interpret(&node) {
                 let _ = self.error_writer.report_errors(vec![err]);
-                self.stack_trace();
-                self.heap.dump(self);
+                // self.stack_trace();
+                // self.heap.dump(self);
                 break;
             }
         }
@@ -102,7 +102,8 @@ impl InterpreterContext {
         alloc_func(self, Func::Native("*".into(), std_lib::mul));
         alloc_func(self, Func::Native("/".into(), std_lib::div));
 
-        alloc_func(self, Func::Native("eq".into(), std_lib::eq));
+        alloc_func(self, Func::Native("eq?".into(), std_lib::eq));
+        alloc_func(self, Func::Native("==".into(), std_lib::eq));
         alloc_func(self, Func::Native("<".into(), std_lib::lt));
         alloc_func(self, Func::Native("<=".into(), std_lib::lteq));
         alloc_func(self, Func::Native(">".into(), std_lib::gt));
@@ -184,7 +185,7 @@ impl InterpreterContext {
 
         let func_name = unsafe { func.as_ref().unwrap().to_string() };
         let frame = Frame::new(self.frame_stack.len(), func_name);
-        self.frame_stack.push(frame);
+        self.push_frame(frame);
 
         let param_count = body.len();
         let mut call_func = || -> InterpreterResult<()> {
@@ -209,6 +210,7 @@ impl InterpreterContext {
                     for param in body.drain(..) {
                         self.interpret(param)?
                     }
+
 
                     let mut params = Vec::new();
                     for _ in 0..param_count {
@@ -240,6 +242,10 @@ impl InterpreterContext {
         self.pop_frame()?;
 
         Ok(())
+    }
+
+    pub fn push_frame(&mut self, frame: Frame) {
+        self.frame_stack.push(frame);
     }
 
     pub fn pop_frame(&mut self) -> InterpreterResult<()> {

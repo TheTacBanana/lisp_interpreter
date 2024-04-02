@@ -364,8 +364,6 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
         let stack_object = interpreter.pop_data()?;
         let list = stack_object.deref(interpreter)?;
         let p = match list {
-            // ObjectRef::Null => todo!(),
-            // ObjectRef::Value(_) => todo!(),
             ObjectRef::Object(o) => match &*o.deref() {
                 HeapObject::List(h, _) => h.clone(),
                 _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
@@ -393,8 +391,6 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
         let stack_object = interpreter.pop_data()?;
         let list = stack_object.deref(interpreter)?;
         let p = match list {
-            // ObjectRef::Null => todo!(),
-            // ObjectRef::Value(_) => todo!(),
             ObjectRef::Object(o) => match &*o.deref() {
                 HeapObject::List(_, t) => t.clone(),
                 _ => Err(InterpreterError::new(InterpreterErrorKind::ExpectedList))?,
