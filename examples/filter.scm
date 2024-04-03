@@ -13,4 +13,11 @@
             (even? (- x 2))))
     )
 
-(write (filter '(1 2 3 4 5 6) even?))
+(define (nlist n)
+    (if (eq? n 0)
+        '()
+        (cons n (nlist (- n 1)))
+    )
+)
+
+(write (filter (nlist 100) even?))
