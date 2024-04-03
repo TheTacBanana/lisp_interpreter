@@ -16,17 +16,17 @@ use crate::{
     InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
-pub fn stack_trace(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
-    interpreter.stack_trace();
+pub fn stack_trace(interpreter: &InterpreterContext, _n: usize) -> InterpreterResult<()> {
+    interpreter.stack.stack_trace();
     Ok(())
 }
 
-pub fn heap_dump(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+pub fn heap_dump(interpreter: &InterpreterContext, _n: usize) -> InterpreterResult<()> {
     interpreter.heap.dump(&interpreter);
     Ok(())
 }
 
-pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+pub fn import(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     if ast.is_empty() {
         return Err(InterpreterError::new(InterpreterErrorKind::EmptyImport));
     }
@@ -49,6 +49,8 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
 
     let mut file_path = interpreter
         .error_writer
+        .read()
+        .unwrap()
         .id_to_path
         .get(&cur_file_id)
         .map(|p| {
@@ -62,7 +64,12 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     file_path = path.iter().fold(file_path, |l, r| l.join(r));
     file_path.set_extension("scm");
 
-    if interpreter.error_writer.already_loaded(&file_path) {
+    if interpreter
+        .error_writer
+        .read()
+        .unwrap()
+        .already_loaded(&file_path)
+    {
         return Ok(());
     }
 
@@ -77,9 +84,10 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
 
     let id = interpreter
         .error_writer
+        .write().unwrap()
         .add_file(file_path, contents.clone());
 
-    let ast = LexerParser::from_string(id, contents, &interpreter.error_writer).map_err(|_| {
+    let ast = LexerParser::from_string(id, contents, &interpreter.error_writer.read().unwrap()).map_err(|_| {
         InterpreterError::spanned(InterpreterErrorKind::ErrorInParsingImport, total_span)
     })?;
 
@@ -91,7 +99,7 @@ pub fn import(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
 }
 
 pub fn if_macro(
-    interpreter: &mut InterpreterContext,
+    interpreter: &InterpreterContext,
     mut ast: Vec<&AST>,
 ) -> InterpreterResult<*const AST> {
     if ast.len() != 3 {
@@ -119,7 +127,7 @@ pub fn if_macro(
     let cond = drain.next().unwrap();
 
     interpreter.interpret(cond)?;
-    let cond = interpreter.pop_data()?;
+    let cond = interpreter.stack.pop_data()?;
     let result = match cond.deref(interpreter)? {
         ObjectRef::Value(Literal::Boolean(false)) => false,
         _ => true,
@@ -132,7 +140,7 @@ pub fn if_macro(
     }
 }
 
-pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+pub fn define(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     if ast.len() > 2 || ast.is_empty() {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
@@ -147,7 +155,7 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
         // Define a value
         AST::Identifier(ident, _) => {
             interpreter.interpret(ast.next().unwrap())?;
-            let p = interpreter.pop_data()?;
+            let p = interpreter.stack.pop_data()?;
             p.heap_alloc_named(ident, interpreter)?;
         }
         // Define a function
@@ -187,7 +195,7 @@ pub fn define(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     Ok(())
 }
 
-pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+pub fn lambda(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     if ast.len() > 2 || ast.is_empty() {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
@@ -239,15 +247,15 @@ pub fn lambda(interpreter: &mut InterpreterContext, mut ast: Vec<&AST>) -> Inter
     ))
     .stack_alloc(interpreter)?;
 
-    interpreter.push_data(obj);
+    interpreter.stack.push_data(obj);
 
     Ok(())
 }
 
-pub fn write(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+pub fn write(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     let mut data = Vec::new();
     for _ in 0..n {
-        data.push(interpreter.pop_data()?);
+        data.push(interpreter.stack.pop_data()?);
     }
     data.reverse();
     for d in data {
@@ -260,10 +268,10 @@ pub fn write(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResul
 
 macro_rules! bin_op {
     ($name:ident, $l:ident, $r:ident, $calc:expr) => {
-        pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+        pub fn $name(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
             let mut objs = Vec::new();
             for _ in 0..n {
-                objs.push(interpreter.pop_data()?);
+                objs.push(interpreter.stack.pop_data()?);
             }
             objs.reverse();
 
@@ -283,7 +291,7 @@ macro_rules! bin_op {
                 .ok_or(InterpreterError::new(InterpreterErrorKind::FailedOperation))?
                 .stack_alloc(interpreter)?;
 
-            interpreter.push_data(stack_obj);
+            interpreter.stack.push_data(stack_obj);
 
             return Ok(());
         }
@@ -297,10 +305,10 @@ bin_op!(div, l, r, l / r);
 
 macro_rules! cmp_op {
     ($name:ident, $l:ident, $r:ident, $i:ident, $calc:expr) => {
-        pub fn $name(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+        pub fn $name(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
             let mut objs = Vec::new();
             for _ in 0..n {
-                objs.push(interpreter.pop_data()?);
+                objs.push(interpreter.stack.pop_data()?);
             }
             objs.reverse();
 
@@ -314,7 +322,7 @@ macro_rules! cmp_op {
                 }),
                 e => e,
             });
-            interpreter.push_data(StackObject::Value(Literal::Boolean(out?)));
+            interpreter.stack.push_data(StackObject::Value(Literal::Boolean(out?)));
 
             Ok(())
         }
@@ -327,7 +335,7 @@ cmp_op!(lteq, l, r, i, l.object_cmp(&r, i)?.is_le());
 cmp_op!(gt, l, r, i, l.object_cmp(&r, i)?.is_gt());
 cmp_op!(gteq, l, r, i, l.object_cmp(&r, i)?.is_ge());
 
-pub fn empty(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+pub fn empty(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
@@ -338,7 +346,7 @@ pub fn empty(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResul
     }
 
     let val = {
-        let stack_object = interpreter.pop_data()?;
+        let stack_object = interpreter.stack.pop_data()?;
         let list = stack_object.deref(interpreter)?;
         match list {
             ObjectRef::Null => true,
@@ -346,11 +354,11 @@ pub fn empty(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResul
         }
     };
 
-    interpreter.push_data(StackObject::Value(Literal::Boolean(val)));
+    interpreter.stack.push_data(StackObject::Value(Literal::Boolean(val)));
     Ok(())
 }
 
-pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+pub fn car(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
@@ -361,7 +369,7 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
     }
 
     let p = {
-        let stack_object = interpreter.pop_data()?;
+        let stack_object = interpreter.stack.pop_data()?;
         let list = stack_object.deref(interpreter)?;
         let p = match list {
             ObjectRef::Object(o) => match &*o.deref() {
@@ -373,11 +381,11 @@ pub fn car(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
         p
     };
     let p = p.stack_alloc(interpreter)?;
-    interpreter.push_data(p);
+    interpreter.stack.push_data(p);
     Ok(())
 }
 
-pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+pub fn cdr(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
@@ -388,7 +396,7 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
     }
 
     let p = {
-        let stack_object = interpreter.pop_data()?;
+        let stack_object = interpreter.stack.pop_data()?;
         let list = stack_object.deref(interpreter)?;
         let p = match list {
             ObjectRef::Object(o) => match &*o.deref() {
@@ -400,11 +408,11 @@ pub fn cdr(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<
         p
     };
     let p = p.stack_alloc(interpreter)?;
-    interpreter.push_data(p);
+    interpreter.stack.push_data(p);
     Ok(())
 }
 
-pub fn cons(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult<()> {
+pub fn cons(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 2 {
         return Err(InterpreterError::new(
             InterpreterErrorKind::ExpectedNParams {
@@ -415,8 +423,11 @@ pub fn cons(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult
     }
 
     let ptr = {
-        let tail = interpreter.pop_data()?;
-        let head = interpreter.pop_data()?.deref(interpreter)?.clone_to_unallocated();
+        let tail = interpreter.stack.pop_data()?;
+        let head = interpreter.stack
+            .pop_data()?
+            .deref(interpreter)?
+            .clone_to_unallocated();
 
         let obj = if let StackObject::Ref(ObjectPointer::Null) = tail {
             UnallocatedObject::List(head.heap_alloc(interpreter)?, ObjectPointer::Null)
@@ -426,7 +437,7 @@ pub fn cons(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult
         obj.stack_alloc(interpreter)?
     };
 
-    interpreter.push_data(ptr);
+    interpreter.stack.push_data(ptr);
 
     Ok(())
 }

@@ -1,7 +1,7 @@
 use core::{error::FormattedError, token::span::Span};
 use std::error::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InterpreterError {
     span: Option<Span>,
     kind: InterpreterErrorKind,

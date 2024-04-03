@@ -1,22 +1,20 @@
-use std::sync::Arc;
-
 use crate::{
     object::{HeapObject, ObjectPointer, StackObject, UnallocatedObject},
     InterpreterContext, InterpreterError, InterpreterErrorKind, InterpreterResult,
 };
 
 pub trait InterpreterStackAlloc: Sized {
-    fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject>;
+    fn stack_alloc(self, interpreter: &InterpreterContext) -> InterpreterResult<StackObject>;
 }
 
 impl InterpreterStackAlloc for ObjectPointer {
-    fn stack_alloc(self, _interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
+    fn stack_alloc(self, _interpreter: &InterpreterContext) -> InterpreterResult<StackObject> {
         Ok(StackObject::Ref(self))
     }
 }
 
 impl InterpreterStackAlloc for UnallocatedObject {
-    fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
+    fn stack_alloc(self, interpreter: &InterpreterContext) -> InterpreterResult<StackObject> {
         match self {
             UnallocatedObject::Value(v) => Ok(StackObject::Value(v)),
             o => Ok(StackObject::Ref(o.heap_alloc(interpreter)?)),
@@ -25,7 +23,7 @@ impl InterpreterStackAlloc for UnallocatedObject {
 }
 
 impl InterpreterStackAlloc for HeapObject {
-    fn stack_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<StackObject> {
+    fn stack_alloc(self, interpreter: &InterpreterContext) -> InterpreterResult<StackObject> {
         Ok(StackObject::Ref(self.heap_alloc(interpreter)?))
     }
 }
@@ -34,31 +32,36 @@ pub trait InterpreterHeapAlloc: Sized {
     fn heap_alloc_named(
         self,
         ident: &str,
-        interpreter: &mut InterpreterContext,
+        interpreter: &InterpreterContext,
     ) -> InterpreterResult<ObjectPointer> {
         let p = self.heap_alloc(interpreter)?;
         interpreter
             .ident_mapping
+            .write()
+            .unwrap()
             .insert(ident.to_string(), p.clone());
         Ok(p)
     }
 
-    fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer>;
+    fn heap_alloc(self, interpreter: &InterpreterContext) -> InterpreterResult<ObjectPointer>;
 }
 
 impl InterpreterHeapAlloc for HeapObject {
-    fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
+    fn heap_alloc(self, interpreter: &InterpreterContext) -> InterpreterResult<ObjectPointer> {
         Ok(interpreter.heap.alloc_heap_object(self))
     }
 }
 
 impl InterpreterHeapAlloc for StackObject {
-    fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
+    fn heap_alloc(self, interpreter: &InterpreterContext) -> InterpreterResult<ObjectPointer> {
         match self {
             StackObject::Value(v) => HeapObject::Value(v).heap_alloc(interpreter),
             StackObject::Ref(ObjectPointer::Stack(f, p)) => {
                 let p = interpreter
-                    .frame_stack
+                    .stack
+                    .frame
+                    .read()
+                    .unwrap()
                     .get(f)
                     .and_then(|f| f.get_local_by_index(p).map(|p| p.clone()));
 
@@ -73,7 +76,7 @@ impl InterpreterHeapAlloc for StackObject {
 }
 
 impl InterpreterHeapAlloc for UnallocatedObject {
-    fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
+    fn heap_alloc(self, interpreter: &InterpreterContext) -> InterpreterResult<ObjectPointer> {
         match self {
             UnallocatedObject::Func(f) => HeapObject::Func(f),
             UnallocatedObject::String(s) => HeapObject::String(s),

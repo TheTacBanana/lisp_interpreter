@@ -17,11 +17,11 @@ fn main() -> Result<()>{
             Ok(line) => {
                 editor.add_history_entry(line.as_str())?;
 
-                let file_id = context.error_writer.load_string(line.clone());
-                let Ok(ast) = LexerParser::from_string(file_id, line, &context.error_writer) else { continue; };
+                let file_id = context.error_writer.write().unwrap().load_string(line.clone());
+                let Ok(ast) = LexerParser::from_string(file_id, line, &context.error_writer.read().unwrap()) else { continue; };
 
                 context.start(ast);
-                if let Ok(p) = context.pop_data() {
+                if let Ok(p) = context.stack.pop_data() {
                     let obj = p.deref(&context)?;
                     println!("{}", obj.interpreter_fmt(&context));
                 }

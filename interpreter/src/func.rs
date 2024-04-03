@@ -2,9 +2,9 @@ use core::parser::ast::AST;
 
 use crate::{InterpreterContext, InterpreterResult};
 
-pub type NativeFunc = fn(&mut InterpreterContext, usize) -> InterpreterResult<()>;
-pub type TokenNativeFunc = fn(&mut InterpreterContext, Vec<&AST>) -> InterpreterResult<()>;
-pub type MacroFunc = fn(&mut InterpreterContext, Vec<&AST>) -> InterpreterResult<*const AST>;
+pub type NativeFunc = fn(&InterpreterContext, usize) -> InterpreterResult<()>;
+pub type TokenNativeFunc = fn(&InterpreterContext, Vec<&AST>) -> InterpreterResult<()>;
+pub type MacroFunc = fn(&InterpreterContext, Vec<&AST>) -> InterpreterResult<*const AST>;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Func {

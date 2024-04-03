@@ -1,7 +1,12 @@
 #![feature(let_chains)]
 #![feature(mapped_lock_guards)]
 
-use std::{collections::HashMap, ops::Deref, sync::Arc, thread::JoinHandle};
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::{Arc, RwLock},
+    thread::JoinHandle,
+};
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use core::{error::ErrorWriter, parser::ast::AST, token::span::Span};
@@ -10,30 +15,32 @@ use error::{InterpreterError, InterpreterErrorKind};
 use frame::Frame;
 use heap::InterpreterHeap;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
+use stack::InterpreterStack;
 
 use crate::func::Func;
 
 pub mod alloc;
-pub mod deref;
 pub mod comparison;
+pub mod deref;
 pub mod error;
 pub mod frame;
 pub mod func;
 pub mod heap;
 pub mod object;
 pub mod print;
+pub mod stack;
 pub mod std_lib;
 
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 pub struct InterpreterContext {
-    pub error_writer: ErrorWriter,
+    pub error_writer: RwLock<ErrorWriter>,
 
-    pub frame_stack: Vec<Frame>,
-    pub data_stack: Vec<StackObject>,
+    pub ident_mapping: RwLock<HashMap<String, ObjectPointer>>,
 
-    pub ident_mapping: HashMap<String, ObjectPointer>,
+    pub stack: Arc<InterpreterStack>,
     pub heap: Arc<InterpreterHeap>,
+
     pub gc_thread: JoinHandle<()>,
 }
 
@@ -42,11 +49,10 @@ impl InterpreterContext {
         let (heap, gc) = InterpreterHeap::new();
 
         let mut s = Self {
-            error_writer,
-            frame_stack: Vec::new(),
-            data_stack: Vec::new(),
-            ident_mapping: HashMap::new(),
+            error_writer: RwLock::new(error_writer),
+            ident_mapping: RwLock::new(HashMap::new()),
             heap,
+            stack: Arc::new(InterpreterStack::new()),
             gc_thread: gc.spawn_thread(),
         };
         s.with_std();
@@ -56,7 +62,7 @@ impl InterpreterContext {
     pub fn start(&mut self, ast: Vec<AST>) {
         for node in ast {
             if let Err(err) = self.interpret(&node) {
-                let _ = self.error_writer.report_errors(vec![err]);
+                let _ = self.error_writer.read().unwrap().report_errors(vec![err]);
                 // self.stack_trace();
                 // self.heap.dump(self);
                 break;
@@ -65,7 +71,7 @@ impl InterpreterContext {
     }
 
     pub fn with_std(&mut self) {
-        fn alloc_func(int: &mut InterpreterContext, f: Func) {
+        fn alloc_func(int: &InterpreterContext, f: Func) {
             let name = match &f {
                 Func::TokenNative(s, _)
                 | Func::Macro(s, _)
@@ -110,35 +116,28 @@ impl InterpreterContext {
         alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
     }
 
-    pub fn stack_trace(&self) {
-        println!("Stack Trace:");
-        for s in self.frame_stack.iter() {
-            println!("{s}")
-        }
-    }
-
-    pub fn interpret(&mut self, ast: &AST) -> InterpreterResult<()> {
+    pub fn interpret(&self, ast: &AST) -> InterpreterResult<()> {
         match ast {
             AST::Operation(op, params, _) => {
                 return self.interpret_operation(op, params.iter().collect())
             }
             AST::Identifier(ident, span) => {
                 let p = self.resolve_identifier(ident, *span)?;
-                self.push_data(StackObject::Ref(p));
+                self.stack.push_data(StackObject::Ref(p));
             }
-            AST::Literal(lit, _) => self.push_data(StackObject::Value(*lit)),
-            AST::EmptyList(_) => self.push_data(StackObject::Ref(ObjectPointer::Null)),
+            AST::Literal(lit, _) => self.stack.push_data(StackObject::Value(*lit)),
+            AST::EmptyList(_) => self.stack.push_data(StackObject::Ref(ObjectPointer::Null)),
             AST::StringLiteral(s, _) => {
                 let p = HeapObject::String(s.clone()).stack_alloc(self)?;
-                self.push_data(p)
+                self.stack.push_data(p)
             }
             AST::List(head, tail, _) => {
                 self.interpret(head)?;
-                let head = self.pop_data()?.heap_alloc(self)?;
+                let head = self.stack.pop_data()?.heap_alloc(self)?;
                 self.interpret(tail)?;
-                let tail = self.pop_data()?.heap_alloc(self)?;
+                let tail = self.stack.pop_data()?.heap_alloc(self)?;
                 let pointer = HeapObject::List(head, tail).stack_alloc(self)?;
-                self.push_data(pointer)
+                self.stack.push_data(pointer)
             }
         }
         Ok(())
@@ -149,7 +148,7 @@ impl InterpreterContext {
             AST::Identifier(ident, span) => (self.resolve_identifier(ident, *span)?, *span),
             AST::Operation(inner_op, inner_body, span) => {
                 self.interpret_operation(inner_op, inner_body.iter().collect())?;
-                match self.pop_data()? {
+                match self.stack.pop_data()? {
                     StackObject::Ref(p) => (p, *span),
                     StackObject::Value(v) => {
                         return Err(InterpreterError::spanned(
@@ -174,22 +173,22 @@ impl InterpreterContext {
                     span,
                 ));
             };
-            let HeapObject::Func(f) = lock.deref() else {
+            let HeapObject::Func(func) = lock.deref() else {
                 return Err(InterpreterError::spanned(
                     InterpreterErrorKind::CannotCall(lock.deref().to_string()),
                     span,
                 ));
             };
-            f.clone()
+            func as *const Func
         };
 
-        let func_name = func.to_string();
-        let frame = Frame::new(self.frame_stack.len(), func_name);
-        self.push_frame(frame);
+        let func_name = unsafe { func.as_ref().unwrap().to_string() };
+        let frame = Frame::new(self.stack.frame.read().unwrap().len(), func_name);
+        self.stack.push_frame(frame);
 
         let param_count = body.len();
-        let call_func = || -> InterpreterResult<()> {
-            match func {
+        let mut call_func = || -> InterpreterResult<()> {
+            match unsafe { func.as_ref().unwrap() } {
                 Func::Native(_, native_func) => {
                     for param in body.drain(..) {
                         self.interpret(param)?
@@ -213,15 +212,16 @@ impl InterpreterContext {
 
                     let mut params = Vec::new();
                     for _ in 0..param_count {
-                        params.push(self.pop_data()?);
+                        params.push(self.stack.pop_data()?);
                     }
                     params.reverse();
 
-                    let frame = self.top_frame()?;
-                    param_names.iter().zip(params).for_each(|(name, obj)| {
-                        frame.insert_local(name, obj);
-                    });
-
+                    {
+                        let mut frame = self.stack.top_frame()?;
+                        param_names.iter().zip(params).for_each(|(name, obj)| {
+                            frame.insert_local(name, obj);
+                        });
+                    }
                     self.interpret(&ast)
                 }
                 Func::TokenNative(_, native_special_func) => {
@@ -238,42 +238,17 @@ impl InterpreterContext {
 
         call_func().map_err(|e| e.add_if_not_spanned(op.span()))?;
 
-        self.pop_frame()?;
+        self.stack.pop_frame()?;
 
         Ok(())
     }
 
-    pub fn push_frame(&mut self, frame: Frame) {
-        self.frame_stack.push(frame);
-    }
-
-    pub fn pop_frame(&mut self) -> InterpreterResult<()> {
-        if self.frame_stack.pop().is_none() {
-            Err(InterpreterError::new(InterpreterErrorKind::EmptyStack))
-        } else {
-            Ok(())
-        }
-    }
-
-    pub fn top_frame(&mut self) -> InterpreterResult<&mut Frame> {
-        self.frame_stack
-            .last_mut()
-            .ok_or(InterpreterError::new(InterpreterErrorKind::EmptyStack))
-    }
-
-    pub fn push_data(&mut self, obj: StackObject) {
-        self.data_stack.push(obj)
-    }
-
-    pub fn pop_data(&mut self) -> InterpreterResult<StackObject> {
-        self.data_stack
-            .pop()
-            .ok_or(InterpreterError::new(InterpreterErrorKind::EmptyDataStack))
-    }
-
     pub fn resolve_identifier(&self, ident: &str, span: Span) -> InterpreterResult<ObjectPointer> {
         if let Some(ptr) = self
-            .frame_stack
+            .stack
+            .frame
+            .read()
+            .unwrap()
             .iter()
             .rev()
             .find_map(|frame| frame.get_local_ptr(ident))
@@ -281,7 +256,7 @@ impl InterpreterContext {
             return Ok(ptr);
         }
 
-        if let Some(ptr) = self.ident_mapping.get(ident) {
+        if let Some(ptr) = self.ident_mapping.read().unwrap().get(ident) {
             return Ok(ptr.clone());
         }
 
