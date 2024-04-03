@@ -227,11 +227,7 @@ impl InterpreterContext {
                         param_names.iter().zip(params).for_each(|(name, obj)| {
                             top_frame.insert_local(name, obj);
                         });
-<<<<<<< HEAD
 
-                        println!("{}", top_frame.deref())
-=======
->>>>>>> bc44dce (Tail call optimization!!!)
                     }
 
                     let out = self.interpret(&ast);
