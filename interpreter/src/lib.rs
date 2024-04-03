@@ -179,16 +179,14 @@ impl InterpreterContext {
                     span,
                 ));
             };
-            func as *const Func
+            func.clone()
         };
 
-        let func_name = unsafe { func.as_ref().unwrap().to_string() };
-        let frame = Frame::new(self.stack.frame.read().unwrap().len(), func_name);
-        self.stack.push_frame(frame);
+        let func_name = func.to_string();
 
         let param_count = body.len();
-        let mut call_func = || -> InterpreterResult<()> {
-            match unsafe { func.as_ref().unwrap() } {
+        let call_func = || -> InterpreterResult<()> {
+            match func {
                 Func::Native(_, native_func) => {
                     for param in body.drain(..) {
                         self.interpret(param)?
@@ -210,19 +208,30 @@ impl InterpreterContext {
                         self.interpret(param)?
                     }
 
+
                     let mut params = Vec::new();
                     for _ in 0..param_count {
                         params.push(self.stack.pop_data()?);
                     }
                     params.reverse();
 
+                    let frame = Frame::new(self.stack.frame.read().unwrap().len(), func_name);
+                    self.stack.push_frame(frame);
+
                     {
                         let mut frame = self.stack.top_frame()?;
                         param_names.iter().zip(params).for_each(|(name, obj)| {
                             frame.insert_local(name, obj);
                         });
+                        println!("{}", frame.deref())
                     }
-                    self.interpret(&ast)
+
+                    let out = self.interpret(&ast);
+
+                    self.stack.pop_frame()?;
+
+                    out
+
                 }
                 Func::TokenNative(_, native_special_func) => {
                     let params = std::mem::take(&mut body);
@@ -237,8 +246,6 @@ impl InterpreterContext {
         };
 
         call_func().map_err(|e| e.add_if_not_spanned(op.span()))?;
-
-        self.stack.pop_frame()?;
 
         Ok(())
     }
