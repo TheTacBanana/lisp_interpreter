@@ -1,18 +1,20 @@
 use std::collections::HashMap;
 
-use crate::{object::StackObject, ObjectPointer};
+use crate::{func::Func, object::StackObject, ObjectPointer};
 
 pub struct Frame {
     pub name: String,
+    pub func: Func,
     pub stack_index: usize,
     pub ident_mapping: HashMap<String, usize>,
     pub locals: Vec<Option<StackObject>>,
 }
 
 impl Frame {
-    pub fn new(stack_index: usize, name: String) -> Self {
+    pub fn new(stack_index: usize, func: Func) -> Self {
         Self {
-            name,
+            name: func.to_string(),
+            func,
             stack_index,
             ident_mapping: HashMap::new(),
             locals: Vec::new(),

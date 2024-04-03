@@ -17,7 +17,7 @@ use heap::InterpreterHeap;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
 use stack::InterpreterStack;
 
-use crate::func::Func;
+use crate::{func::Func, stack::FrameRef};
 
 pub mod alloc;
 pub mod comparison;
@@ -182,11 +182,9 @@ impl InterpreterContext {
             func.clone()
         };
 
-        let func_name = func.to_string();
-
         let param_count = body.len();
-        let call_func = || -> InterpreterResult<()> {
-            match func {
+        let mut call_func = || -> InterpreterResult<()> {
+            match &func {
                 Func::Native(_, native_func) => {
                     for param in body.drain(..) {
                         self.interpret(param)?
@@ -215,20 +213,29 @@ impl InterpreterContext {
                     }
                     params.reverse();
 
-                    let frame = Frame::new(self.stack.frame.read().unwrap().len(), func_name);
-                    self.stack.push_frame(frame);
-
+                    let mut tail_call = false;
                     {
-                        let mut frame = self.stack.top_frame()?;
+                        let mut top_frame = if let Ok(top_frame) = self.stack.top_frame() && top_frame.func == func {
+                            tail_call = true;
+                            top_frame
+                        } else {
+                            let frame = Frame::new(self.stack.frame.read().unwrap().len(), func.clone());
+                            self.stack.push_frame(frame);
+                            self.stack.top_frame()?
+                        };
+
                         param_names.iter().zip(params).for_each(|(name, obj)| {
-                            frame.insert_local(name, obj);
+                            top_frame.insert_local(name, obj);
                         });
-                        println!("{}", frame.deref())
+
+                        println!("{}", top_frame.deref())
                     }
 
                     let out = self.interpret(&ast);
 
-                    self.stack.pop_frame()?;
+                    if !tail_call {
+                        self.stack.pop_frame()?;
+                    }
 
                     out
 
