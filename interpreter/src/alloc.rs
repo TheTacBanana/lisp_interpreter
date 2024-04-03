@@ -56,7 +56,18 @@ impl InterpreterHeapAlloc for StackObject {
     fn heap_alloc(self, interpreter: &mut InterpreterContext) -> InterpreterResult<ObjectPointer> {
         match self {
             StackObject::Value(v) => HeapObject::Value(v).heap_alloc(interpreter),
-            StackObject::Ref(p) => Ok(p),
+            StackObject::Ref(ObjectPointer::Stack(f, p)) => {
+                let p = interpreter
+                    .frame_stack
+                    .get(f)
+                    .and_then(|f| f.get_local_by_index(p).map(|p| p.clone()));
+
+                p.and_then(|p| p.heap_alloc(interpreter).ok())
+                    .ok_or(InterpreterError::new(
+                        InterpreterErrorKind::StackIndexOutOfRange,
+                    ))
+            }
+            StackObject::Ref(o) => Ok(o),
         }
     }
 }

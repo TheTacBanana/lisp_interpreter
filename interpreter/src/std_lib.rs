@@ -416,9 +416,9 @@ pub fn cons(interpreter: &mut InterpreterContext, n: usize) -> InterpreterResult
 
     let ptr = {
         let tail = interpreter.pop_data()?;
-        let head = interpreter.pop_data()?;
+        let head = interpreter.pop_data()?.deref(interpreter)?.clone_to_unallocated();
 
-        let obj = if let StackObject::Ref(ObjectPointer::Null) = head {
+        let obj = if let StackObject::Ref(ObjectPointer::Null) = tail {
             UnallocatedObject::List(head.heap_alloc(interpreter)?, ObjectPointer::Null)
         } else {
             UnallocatedObject::List(head.heap_alloc(interpreter)?, tail.heap_alloc(interpreter)?)

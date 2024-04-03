@@ -22,7 +22,7 @@ impl InterpreterPrint for ObjectPointer {
     fn interpreter_fmt(&self, i: &InterpreterContext) -> String {
         match self {
             ObjectPointer::Null => format!("()"),
-            ObjectPointer::Stack(_, _) => todo!(),
+            ObjectPointer::Stack(f, p) => i.frame_stack.get(*f).unwrap().get_local_by_index(*p).unwrap().interpreter_fmt(i),
             ObjectPointer::Heap(p) => i.heap.get_heap_object(**p).unwrap().interpreter_fmt(i),
         }
     }

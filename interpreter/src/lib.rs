@@ -144,7 +144,7 @@ impl InterpreterContext {
         Ok(())
     }
 
-    pub fn interpret_operation(&mut self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
+    pub fn interpret_operation(&self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
         let (pointer, span) = match op {
             AST::Identifier(ident, span) => (self.resolve_identifier(ident, *span)?, *span),
             AST::Operation(inner_op, inner_body, span) => {
@@ -180,16 +180,16 @@ impl InterpreterContext {
                     span,
                 ));
             };
-            f as *const Func
+            f.clone()
         };
 
-        let func_name = unsafe { func.as_ref().unwrap().to_string() };
+        let func_name = func.to_string();
         let frame = Frame::new(self.frame_stack.len(), func_name);
         self.push_frame(frame);
 
         let param_count = body.len();
-        let mut call_func = || -> InterpreterResult<()> {
-            match unsafe { func.as_ref().unwrap() } {
+        let call_func = || -> InterpreterResult<()> {
+            match func {
                 Func::Native(_, native_func) => {
                     for param in body.drain(..) {
                         self.interpret(param)?
@@ -210,7 +210,6 @@ impl InterpreterContext {
                     for param in body.drain(..) {
                         self.interpret(param)?
                     }
-
 
                     let mut params = Vec::new();
                     for _ in 0..param_count {
