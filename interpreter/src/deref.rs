@@ -20,13 +20,13 @@ impl InterpreterDeref for ObjectPointer {
             ObjectPointer::Heap(p) => {
                 interpreter
                     .heap
-                    .get_heap_object(*p.deref())
+                    .get_heap_ref(*p.deref())
                     .ok_or(InterpreterError::new(
                         InterpreterErrorKind::PointerDoesNotExist,
                     ))
             }
             ObjectPointer::Stack(frame, index) => {
-                interpreter.stack.get_stack_object(*frame, *index, &interpreter)
+                interpreter.stack.get_stack_ref(*frame, *index, &interpreter)
             }
         }
     }

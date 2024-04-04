@@ -36,7 +36,7 @@ impl InterpreterHeap {
             .enumerate()
             .filter_map(|(i, o)| o.as_ref().map(|o| (i, o)))
         {
-            if let (refs, Some(item)) = (Arc::strong_count(&object.1), self.get_heap_object(i)) {
+            if let (refs, Some(item)) = (Arc::strong_count(&object.1), self.get_heap_ref(i)) {
                 //TODO:
                 println!("[{i}] {} {refs}", item.interpreter_fmt(context))
             } else {
@@ -46,7 +46,7 @@ impl InterpreterHeap {
         println!()
     }
 
-    pub fn get_heap_object<'a>(&self, index: usize) -> Option<ObjectRef<'_>> {
+    pub fn get_heap_ref<'a>(&self, index: usize) -> Option<ObjectRef<'_>> {
         let lock = self.store.read().unwrap();
         if lock.get(index).is_some_and(|x| x.is_some()) {
             Some(RwLockReadGuard::map(lock, |lock| &(&lock[index]).as_ref().unwrap().0).into())
@@ -114,7 +114,7 @@ impl GarbageCollector {
 
                 while !queue.is_empty() {
                     let popped = queue.pop().unwrap();
-                    match self.heap.get_heap_object(popped).unwrap() {
+                    match self.heap.get_heap_ref(popped).unwrap() {
                         ObjectRef::Object(o) => match &*o {
                             HeapObject::List(ObjectPointer::Heap(h), ObjectPointer::Heap(t)) => {
                                 queue.push(*h.deref());

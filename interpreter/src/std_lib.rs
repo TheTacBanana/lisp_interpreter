@@ -283,7 +283,7 @@ macro_rules! bin_op {
                         Some(UnallocatedObject::Value(Literal::Numeric($l))),
                         ObjectRef::Value(Literal::Numeric($r)),
                     ) => Some(UnallocatedObject::Value(Literal::Numeric($calc))),
-                    _ => panic!(),
+                    e => panic!("{e:?}"),
                 }
             });
 

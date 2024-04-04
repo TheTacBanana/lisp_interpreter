@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
-use crate::{func::Func, object::StackObject, ObjectPointer};
+use crate::{func::Func, ObjectPointer};
 
+#[derive(Debug)]
 pub struct Frame {
     pub name: String,
     pub func: Func,
     pub stack_index: usize,
     pub ident_mapping: HashMap<String, usize>,
-    pub locals: Vec<Option<StackObject>>,
+    pub locals: Vec<Option<ObjectPointer>>,
 }
 
 impl Frame {
@@ -21,23 +22,17 @@ impl Frame {
         }
     }
 
-    pub fn get_local_by_index(&self, index: usize) -> Option<&StackObject> {
-        self.locals.get(index).and_then(|p| p.as_ref())
+    pub fn get_local_by_index(&self, index: usize) -> Option<ObjectPointer> {
+        self.locals.get(index).and_then(|p| p.clone())
     }
 
-    pub fn get_local(&self, ident: &str) -> Option<&StackObject> {
+    pub fn get_local(&self, ident: &str) -> Option<ObjectPointer> {
         self.ident_mapping
             .get(ident)
-            .and_then(|i| self.locals.get(*i).and_then(|c| c.as_ref()))
+            .and_then(|i| self.locals.get(*i).and_then(|c| c.clone()))
     }
 
-    pub fn get_local_ptr(&self, ident: &str) -> Option<ObjectPointer> {
-        self.ident_mapping
-            .get(ident)
-            .map(|i| ObjectPointer::Stack(self.stack_index, *i))
-    }
-
-    pub fn insert_local(&mut self, ident: &str, obj: StackObject) -> ObjectPointer {
+    pub fn insert_local(&mut self, ident: &str, pointer: ObjectPointer) -> ObjectPointer{
         let id = self
             .locals
             .iter()
@@ -49,7 +44,7 @@ impl Frame {
             self.locals.extend(extend);
         }
         self.ident_mapping.insert(ident.to_string(), id);
-        let _ = self.locals.get_mut(id).as_mut().unwrap().insert(obj);
+        let _ = self.locals.get_mut(id).as_mut().unwrap().insert(pointer);
         ObjectPointer::Stack(self.stack_index, id)
     }
 

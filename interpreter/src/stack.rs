@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    deref::InterpreterDeref, error::{InterpreterError, InterpreterErrorKind}, frame::Frame, object::{ObjectRef, StackObject}, InterpreterContext, InterpreterResult
+    deref::InterpreterDeref, error::{InterpreterError, InterpreterErrorKind}, frame::Frame, object::{ObjectPointer, ObjectRef, StackObject}, InterpreterContext, InterpreterResult
 };
 
 pub struct InterpreterStack {
@@ -33,6 +33,18 @@ impl InterpreterStack {
         &'a self,
         frame: usize,
         index: usize,
+    ) -> InterpreterResult<ObjectPointer> {
+        let err = InterpreterError::new(InterpreterErrorKind::StackIndexOutOfRange);
+
+        let frames = self.frame.read().unwrap();
+        let frame = frames.get(frame).ok_or(err.clone())?;
+        frame.get_local_by_index(index).ok_or(err)
+    }
+
+    pub fn get_stack_ref<'a>(
+        &'a self,
+        frame: usize,
+        index: usize,
         i: &'a InterpreterContext,
     ) -> InterpreterResult<ObjectRef<'a>> {
         let err = InterpreterError::new(InterpreterErrorKind::StackIndexOutOfRange);
@@ -40,11 +52,7 @@ impl InterpreterStack {
         let frames = self.frame.read().unwrap();
         let frame = frames.get(frame).ok_or(err.clone())?;
         let obj = frame.get_local_by_index(index).ok_or(err)?;
-        match obj {
-            StackObject::Value(v) => Ok(ObjectRef::Value(*v)),
-            StackObject::Ref(o) => o.deref(i),
-        }
-
+        obj.deref(i)
     }
 
     pub fn push_frame(&self, frame: Frame) {
@@ -59,7 +67,7 @@ impl InterpreterStack {
             .ok_or(InterpreterError::new(InterpreterErrorKind::EmptyStack))
     }
 
-    pub fn top_frame(&self) -> InterpreterResult<FrameRef> {
+    pub fn top_frame<'a>(&'a self) -> InterpreterResult<FrameRef<'a>> {
         RwLockWriteGuard::try_map(self.frame.write().unwrap(), |l| l.last_mut())
             .map(|x| x.into())
             .map_err(|_| InterpreterError::new(InterpreterErrorKind::EmptyStack))

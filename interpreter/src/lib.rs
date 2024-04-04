@@ -4,6 +4,7 @@
 use std::{
     collections::HashMap,
     ops::Deref,
+    panic,
     sync::{Arc, RwLock},
     thread::JoinHandle,
 };
@@ -17,7 +18,7 @@ use heap::InterpreterHeap;
 use object::{HeapObject, ObjectPointer, ObjectRef, StackObject};
 use stack::InterpreterStack;
 
-use crate::{func::Func, stack::FrameRef};
+use crate::func::Func;
 
 pub mod alloc;
 pub mod comparison;
@@ -57,17 +58,6 @@ impl InterpreterContext {
         };
         s.with_std();
         s
-    }
-
-    pub fn start(&mut self, ast: Vec<AST>) {
-        for node in ast {
-            if let Err(err) = self.interpret(&node) {
-                let _ = self.error_writer.read().unwrap().report_errors(vec![err]);
-                // self.stack_trace();
-                // self.heap.dump(self);
-                break;
-            }
-        }
     }
 
     pub fn with_std(&mut self) {
@@ -116,143 +106,185 @@ impl InterpreterContext {
         alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
     }
 
-    pub fn interpret(&self, ast: &AST) -> InterpreterResult<()> {
-        match ast {
-            AST::Operation(op, params, _) => {
-                return self.interpret_operation(op, params.iter().collect())
-            }
-            AST::Identifier(ident, span) => {
-                let p = self.resolve_identifier(ident, *span)?;
-                self.stack.push_data(StackObject::Ref(p));
-            }
-            AST::Literal(lit, _) => self.stack.push_data(StackObject::Value(*lit)),
-            AST::EmptyList(_) => self.stack.push_data(StackObject::Ref(ObjectPointer::Null)),
-            AST::StringLiteral(s, _) => {
-                let p = HeapObject::String(s.clone()).stack_alloc(self)?;
-                self.stack.push_data(p)
-            }
-            AST::List(head, tail, _) => {
-                self.interpret(head)?;
-                let head = self.stack.pop_data()?.heap_alloc(self)?;
-                self.interpret(tail)?;
-                let tail = self.stack.pop_data()?.heap_alloc(self)?;
-                let pointer = HeapObject::List(head, tail).stack_alloc(self)?;
-                self.stack.push_data(pointer)
+    pub fn start(&mut self, ast: Vec<AST>) {
+        for node in ast {
+            if let Err(err) = self.interpret(&node) {
+                println!("error");
+                let _ = self.error_writer.read().unwrap().report_errors(vec![err]);
+                // self.stack_trace();
+                // self.heap.dump(self);
+                break;
             }
         }
-        Ok(())
     }
 
-    pub fn interpret_operation(&self, op: &AST, mut body: Vec<&AST>) -> InterpreterResult<()> {
-        let (pointer, span) = match op {
-            AST::Identifier(ident, span) => (self.resolve_identifier(ident, *span)?, *span),
-            AST::Operation(inner_op, inner_body, span) => {
-                self.interpret_operation(inner_op, inner_body.iter().collect())?;
-                match self.stack.pop_data()? {
-                    StackObject::Ref(p) => (p, *span),
-                    StackObject::Value(v) => {
-                        return Err(InterpreterError::spanned(
-                            InterpreterErrorKind::CannotCall(v.to_string()),
-                            *span,
-                        ))
-                    }
-                }
-            }
-            v => {
-                return Err(InterpreterError::spanned(
-                    InterpreterErrorKind::CannotCall(v.to_string()),
-                    v.span(),
-                ))
-            }
-        };
+    pub fn interpret(&self, ast: &AST) -> InterpreterResult<()> {
+        #[derive(Debug)]
+        enum QueueOp<'a> {
+            Eval(&'a AST),
+            BuildList,
 
-        let func = {
-            let ObjectRef::Object(lock) = pointer.deref(self)? else {
-                return Err(InterpreterError::spanned(
-                    InterpreterErrorKind::CannotCall(pointer.deref(self).unwrap().to_string()),
-                    span,
-                ));
-            };
-            let HeapObject::Func(func) = lock.deref() else {
-                return Err(InterpreterError::spanned(
-                    InterpreterErrorKind::CannotCall(lock.deref().to_string()),
-                    span,
-                ));
-            };
-            func.clone()
-        };
+            PopFuncOp(Span, Vec<&'a AST>),
+            CountedParams(usize),
+            NamedParams(Vec<String>),
+            MacroParams(Vec<&'a AST>),
 
-        let param_count = body.len();
-        let mut call_func = || -> InterpreterResult<()> {
-            match &func {
-                Func::Native(_, native_func) => {
-                    for param in body.drain(..) {
-                        self.interpret(param)?
+            PushFrame(Frame),
+            PopFrame,
+            ApplyFunc,
+        }
+
+        let head = ast;
+        let mut op_stack = vec![QueueOp::Eval(head)];
+        while !op_stack.is_empty() {
+            let next = op_stack.pop().unwrap();
+            match next {
+                QueueOp::Eval(ast) => match ast {
+                    AST::Identifier(ident, span) => {
+                        let p = self.resolve_identifier(ident, *span)?;
+                        self.stack.push_data(StackObject::Ref(p));
                     }
-                    native_func(self, param_count)
+                    AST::Literal(lit, _) => self.stack.push_data(StackObject::Value(*lit)),
+                    AST::EmptyList(_) => {
+                        self.stack.push_data(StackObject::Ref(ObjectPointer::Null))
+                    }
+                    AST::StringLiteral(s, _) => {
+                        let p = HeapObject::String(s.clone()).stack_alloc(self)?;
+                        self.stack.push_data(p)
+                    }
+                    AST::List(head, tail, _) => {
+                        op_stack.extend([
+                            QueueOp::BuildList,
+                            QueueOp::Eval(&head),
+                            QueueOp::Eval(&tail),
+                        ]);
+                    }
+                    AST::Operation(op, params, _) => {
+                        op_stack.extend([
+                            QueueOp::PopFuncOp(op.span(), params.iter().collect()),
+                            QueueOp::Eval(op),
+                        ]);
+                    }
+                },
+                QueueOp::BuildList => {
+                    let head = self.stack.pop_data()?.heap_alloc(self)?;
+                    let tail = self.stack.pop_data()?.heap_alloc(self)?;
+                    let pointer = HeapObject::List(head, tail).stack_alloc(self)?;
+                    self.stack.push_data(pointer);
                 }
-                Func::Defined(_, param_names, ast) => {
-                    if body.len() != param_names.len() {
+
+                QueueOp::PopFuncOp(span, mut params) => {
+                    let pointer = match self.stack.pop_data()? {
+                        StackObject::Ref(r) => r,
+                        StackObject::Value(v) => {
+                            return Err(InterpreterError::spanned(
+                                InterpreterErrorKind::CannotCall(v.to_string()),
+                                span,
+                            ))
+                        }
+                    };
+
+                    let ObjectRef::Object(lock) = pointer.deref(self)? else {
                         return Err(InterpreterError::spanned(
-                            InterpreterErrorKind::ExpectedNParams {
-                                expected: param_names.len(),
-                                received: body.len(),
-                            },
-                            op.span(),
+                            InterpreterErrorKind::CannotCall(
+                                pointer.deref(self).unwrap().to_string(),
+                            ),
+                            span,
                         ));
+                    };
+                    let HeapObject::Func(func) = lock.deref() else {
+                        return Err(InterpreterError::spanned(
+                            InterpreterErrorKind::CannotCall(lock.deref().to_string()),
+                            span,
+                        ));
+                    };
+
+                    let tail_call = self.stack.top_frame().is_ok_and(|f| f.func == *func);
+                    if !tail_call {
+                        op_stack.push(QueueOp::PopFrame)
                     }
 
-                    for param in body.drain(..) {
-                        self.interpret(param)?
+                    let param_len = params.len();
+                    match func {
+                        Func::Defined(_, p, _) => {
+                            if p.len() != param_len {
+                                return Err(InterpreterError::spanned(
+                                    InterpreterErrorKind::ExpectedNParams {
+                                        expected: p.len(),
+                                        received: param_len,
+                                    },
+                                    span,
+                                ));
+                            }
+                            op_stack.push(QueueOp::NamedParams(p.clone()));
+                            op_stack.push(QueueOp::ApplyFunc);
+                            op_stack.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
+                        }
+                        Func::Native(_, _) => {
+                            op_stack.push(QueueOp::CountedParams(param_len));
+                            op_stack.push(QueueOp::ApplyFunc);
+                            op_stack.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
+                        }
+                        Func::TokenNative(_, _) | Func::Macro(_, _) => {
+                            op_stack.push(QueueOp::MacroParams(params));
+                            op_stack.push(QueueOp::ApplyFunc);
+                        }
                     }
-
-
-                    let mut params = Vec::new();
-                    for _ in 0..param_count {
-                        params.push(self.stack.pop_data()?);
-                    }
-                    params.reverse();
-
-                    let mut tail_call = false;
-                    {
-                        let mut top_frame = if let Ok(top_frame) = self.stack.top_frame() && top_frame.func == func {
-                            tail_call = true;
-                            top_frame
-                        } else {
-                            let frame = Frame::new(self.stack.frame.read().unwrap().len(), func.clone());
-                            self.stack.push_frame(frame);
-                            self.stack.top_frame()?
-                        };
-
-                        param_names.iter().zip(params).for_each(|(name, obj)| {
-                            top_frame.insert_local(name, obj);
-                        });
-
-                    }
-
-                    let out = self.interpret(&ast);
 
                     if !tail_call {
-                        self.stack.pop_frame()?;
+                        let func = func.clone();
+                        op_stack.push(QueueOp::PushFrame(Frame::new(
+                            self.stack.frame.read().unwrap().len(),
+                            func,
+                        )));
                     }
+                }
 
-                    out
+                QueueOp::PushFrame(frame) => {
+                    self.stack.push_frame(frame);
+                }
+                QueueOp::PopFrame => {
+                    self.stack.pop_frame()?;
+                }
 
+                QueueOp::ApplyFunc => {
+                    let mut top_frame = self.stack.top_frame()?;
+                    let func = &top_frame.func as *const Func;
+
+                    let params = op_stack.pop().unwrap();
+                    match (params, unsafe { func.as_ref().unwrap() }) {
+                        (QueueOp::NamedParams(param_names), Func::Defined(_, _, ast)) => {
+                            let mut params = Vec::new();
+                            for _ in 0..param_names.len() {
+                                params.push(self.stack.pop_data()?.heap_alloc(self)?);
+                            }
+                            params.reverse();
+
+                            param_names.iter().zip(params).for_each(|(name, obj)| {
+                                top_frame.insert_local(name, obj);
+                            });
+
+                            op_stack.push(QueueOp::Eval(&ast))
+                        }
+                        (QueueOp::CountedParams(n), Func::Native(_, native_func)) => {
+                            drop(top_frame);
+                            native_func(self, n)?
+                        }
+                        (QueueOp::MacroParams(params), Func::TokenNative(_, token_native)) => {
+                            drop(top_frame);
+                            token_native(self, params)?;
+                        }
+                        (QueueOp::MacroParams(params), Func::Macro(_, macro_f)) => {
+                            drop(top_frame);
+                            let out = macro_f(self, params)?;
+                            op_stack.push(QueueOp::Eval(unsafe { out.as_ref().unwrap() }));
+                        }
+                        e => panic!("{e:?}"),
+                    };
                 }
-                Func::TokenNative(_, native_special_func) => {
-                    let params = std::mem::take(&mut body);
-                    native_special_func(self, params)
-                }
-                Func::Macro(_, macro_func) => {
-                    let params = std::mem::take(&mut body);
-                    let ast = macro_func(self, params)?;
-                    self.interpret(unsafe { ast.as_ref().unwrap() })
-                }
+                e => panic!("{e:?}"),
             }
-        };
-
-        call_func().map_err(|e| e.add_if_not_spanned(op.span()))?;
-
+        }
         Ok(())
     }
 
@@ -264,7 +296,7 @@ impl InterpreterContext {
             .unwrap()
             .iter()
             .rev()
-            .find_map(|frame| frame.get_local_ptr(ident))
+            .find_map(|frame| frame.get_local(ident))
         {
             return Ok(ptr);
         }

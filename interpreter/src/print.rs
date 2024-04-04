@@ -30,7 +30,7 @@ impl InterpreterPrint for ObjectPointer {
                 .get_local_by_index(*p)
                 .unwrap()
                 .interpreter_fmt(i),
-            ObjectPointer::Heap(p) => i.heap.get_heap_object(**p).unwrap().interpreter_fmt(i),
+            ObjectPointer::Heap(p) => i.heap.get_heap_ref(**p).unwrap().interpreter_fmt(i),
         }
     }
 }
