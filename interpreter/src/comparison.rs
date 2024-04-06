@@ -63,7 +63,7 @@ impl InterpreterComparison<Self> for ObjectPointer {
 impl InterpreterComparison<Self> for HeapObject {
     fn object_eq(&self, rhs: &Self, interpreter: &InterpreterContext) -> InterpreterResult<bool> {
         match (self, rhs) {
-            // (HeapObject::Value(l), HeapObject::Value(r)) => Ok(l == r),
+            (HeapObject::Value(l), HeapObject::Value(r)) => Ok(l == r),
             (HeapObject::String(l), HeapObject::String(r)) => Ok(l == r),
             (HeapObject::Func(l), HeapObject::Func(r)) => Ok(l == r),
             (HeapObject::List(l, ls), HeapObject::List(r, rs)) => {

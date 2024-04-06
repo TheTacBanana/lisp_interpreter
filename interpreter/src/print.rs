@@ -1,4 +1,5 @@
 use crate::{
+    frame::Frame,
     object::{HeapObject, ObjectPointer, ObjectRef, StackObject},
     InterpreterContext,
 };
@@ -55,5 +56,24 @@ impl InterpreterPrint for ObjectRef<'_> {
             ObjectRef::Value(v) => format!("{v}"),
             ObjectRef::Object(obj) => obj.interpreter_fmt(i),
         }
+    }
+}
+
+impl InterpreterPrint for Frame {
+    fn interpreter_fmt(&self, int: &InterpreterContext) -> String {
+        let mut s = format!("Frame[{}]: {}\n", self.stack_index, self.name);
+
+        for (ident, i) in self.ident_mapping.iter() {
+            s.push_str(&format!(
+                "{ident:?}: {:?}, ",
+                self.locals
+                    .get(*i)
+                    .unwrap()
+                    .clone()
+                    .unwrap()
+                    .interpreter_fmt(int)
+            ));
+        }
+        s
     }
 }
