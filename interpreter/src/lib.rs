@@ -4,7 +4,7 @@
 use std::{
     collections::HashMap,
     ops::Deref,
-    panic,
+    panic::{self, take_hook},
     sync::{Arc, RwLock},
     thread::JoinHandle,
 };
@@ -217,7 +217,8 @@ impl InterpreterContext {
                         ));
                     };
 
-                    // let tail_call = self.stack.top_frame().is_ok_and(|f| f.func == *func);
+                    let mut new_frame = !self.stack.top_frame().is_ok_and(|f| f.func.calc_hash() == func.calc_hash());
+
                     let mut new_ops = Vec::new();
                     let param_len = params.len();
                     match func {
@@ -232,30 +233,39 @@ impl InterpreterContext {
                                 ));
                             }
                             new_ops.push(QueueOp::NamedParams(p.clone()));
-                            new_ops.push(QueueOp::ApplyFunc(Some(func.clone())));
+                            new_ops.push(QueueOp::ApplyFunc(new_frame.then(|| func.clone())));
                             new_ops.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
                         }
                         Func::Native(_, _) => {
                             new_ops.push(QueueOp::CountedParams(param_len));
-                            new_ops.push(QueueOp::ApplyFunc(Some(func.clone())));
+                            new_ops.push(QueueOp::ApplyFunc(new_frame.then(|| func.clone())));
                             new_ops.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
                         }
-                        Func::TokenNative(_, _) | Func::Macro(_, _) => {
+                        Func::TokenNative(_, _) => {
+                            new_ops.push(QueueOp::MacroParams(params));
+                            new_ops.push(QueueOp::ApplyFunc(new_frame.then(|| func.clone())));
+                        }
+                        Func::Macro(_, _) => {
                             new_ops.push(QueueOp::MacroParams(params));
                             new_ops.push(QueueOp::ApplyFunc(Some(func.clone())));
+                            new_frame = false;
                         }
                     }
 
-                    // let func = func.clone();
-                    op_stack.push(QueueOp::PopFrame);
+                    if new_frame {
+                        op_stack.push(QueueOp::PopFrame);
+                    }
                     op_stack.extend(new_ops);
-                    op_stack.push(QueueOp::PushFrame(Frame::new(
-                        self.stack.frame.read().unwrap().len(),
-                        func.to_string(),
-                    )));
+                    if new_frame {
+                        op_stack.push(QueueOp::PushFrame(Frame::new(
+                            self.stack.frame.read().unwrap().len(),
+                            func.clone(),
+                        )));
+                    }
                 }
 
                 QueueOp::PushFrame(frame) => {
+                    println!("{frame}");
                     self.stack.push_frame(frame);
                 }
                 QueueOp::PopFrame => {
@@ -263,9 +273,12 @@ impl InterpreterContext {
                 }
 
                 QueueOp::ApplyFunc(func) => {
-                    let func = func.unwrap();
-
                     let mut top_frame = self.stack.top_frame()?;
+                    let func = if let Some(func) = func {
+                        func
+                    } else {
+                        top_frame.func.clone()
+                    };
 
                     let params = op_stack.last().unwrap();
                     match (params, func) {
@@ -288,12 +301,12 @@ impl InterpreterContext {
                         }
                         (QueueOp::MacroParams(params), Func::TokenNative(_, token_native)) => {
                             drop(top_frame);
-                            token_native(self, params.clone())?;
+                            token_native(self, params.to_vec())?;
                         }
                         (QueueOp::MacroParams(params), Func::Macro(_, macro_f)) => {
                             drop(top_frame);
-                            let out = macro_f(self, params.clone())?;
-                            op_stack.push(QueueOp::EvalLiteral(params[out].clone()));
+                            let out = macro_f(self, params.to_vec())?;
+                            op_stack.push(QueueOp::Eval(params[out]));
                         }
                         e => panic!("{e:?}"),
                     };
