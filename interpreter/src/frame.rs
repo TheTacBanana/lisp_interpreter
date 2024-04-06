@@ -5,17 +5,17 @@ use crate::{func::Func, ObjectPointer};
 #[derive(Debug)]
 pub struct Frame {
     pub name: String,
-    pub func: Func,
+    pub func_hash: u64,
     pub stack_index: usize,
     pub ident_mapping: HashMap<String, usize>,
     pub locals: Vec<Option<ObjectPointer>>,
 }
 
 impl Frame {
-    pub fn new(stack_index: usize, func: Func) -> Self {
+    pub fn new(stack_index: usize, func: &Func) -> Self {
         Self {
             name: func.to_string(),
-            func,
+            func_hash: func.calc_hash(),
             stack_index,
             ident_mapping: HashMap::new(),
             locals: Vec::new(),
