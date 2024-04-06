@@ -98,17 +98,21 @@ impl GarbageCollector {
             std::thread::sleep(self.delay);
 
             let to_free = {
-                let heap_ref = self.heap.store.read().unwrap();
-                let get_strong_count = |i: usize| -> Option<usize> {
-                    heap_ref
-                        .get(i)
-                        .and_then(|x| x.as_ref())
-                        .map(|(_, arc)| Arc::strong_count(&arc))
-                };
+                let mut queue = {
+                    let heap_ref = self.heap.store.read().unwrap();
+                    let get_strong_count = |i: usize| -> Option<usize> {
+                        heap_ref
+                            .get(i)
+                            .and_then(|x| x.as_ref())
+                            .map(|(_, arc)| Arc::strong_count(&arc))
+                    };
 
-                let mut queue = (0..heap_ref.len())
-                    .filter(|i| get_strong_count(*i).filter(|c| *c <= 1).is_some())
-                    .collect::<Vec<_>>();
+                    let queue = (0..heap_ref.len())
+                        .filter(|i| get_strong_count(*i).filter(|c| *c <= 1).is_some())
+                        .collect::<Vec<_>>();
+
+                    queue
+                };
 
                 let mut to_free = Vec::new();
 
