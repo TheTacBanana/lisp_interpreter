@@ -2,7 +2,7 @@ use crate::{literal::Literal, token::span::Span};
 
 type P<T> = Box<T>;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum AST {
     /// Identifer
     Identifier(String, Span),
@@ -46,7 +46,6 @@ impl AST {
 
 impl std::fmt::Display for AST {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        
         match self {
             AST::Identifier(ident, _) => write!(f, "{ident}"),
             AST::Literal(lit, _) => write!(f, "{lit}"),

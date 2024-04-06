@@ -2,7 +2,7 @@ use crate::{parser::ast::AST, rules::Rules};
 
 /// Describes the Position of a Token in a File
 /// Inclusive of both sides [start-end]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span {
     pub file_id: usize,
     pub start: LineCol,
@@ -55,7 +55,7 @@ impl Span {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LineCol {
     pub line: usize,
     pub col: usize,

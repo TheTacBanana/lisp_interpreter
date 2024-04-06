@@ -1,12 +1,13 @@
 use core::parser::ast::AST;
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::{InterpreterContext, InterpreterResult};
 
 pub type NativeFunc = fn(&InterpreterContext, usize) -> InterpreterResult<()>;
 pub type TokenNativeFunc = fn(&InterpreterContext, Vec<&AST>) -> InterpreterResult<()>;
-pub type MacroFunc = fn(&InterpreterContext, Vec<&AST>) -> InterpreterResult<*const AST>;
+pub type MacroFunc = fn(&InterpreterContext, Vec<&AST>) -> InterpreterResult<usize>;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum Func {
     Native(String, NativeFunc),
     TokenNative(String, TokenNativeFunc),
@@ -16,8 +17,10 @@ pub enum Func {
 
 
 impl Func {
-    pub fn to_string(&self) -> String {
-        format!("{self}")
+    pub fn calc_hash(&self) -> u64 {
+        let mut s = DefaultHasher::new();
+        self.hash(&mut s);
+        s.finish()
     }
 }
 

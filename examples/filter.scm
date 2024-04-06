@@ -21,3 +21,7 @@
 )
 
 (write (filter (nlist 100) even?))
+
+; (write (if (even? 10) 1 2))
+
+; (heap-dump)

@@ -1,8 +1,8 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::{hash::Hash, ops::{Add, Div, Mul, Sub}};
 
 use crate::{lexer::literal::NumericLiteral, parser::token::ParserTokenKind};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub enum Literal {
     Character(char),
     Numeric(Numeric),
@@ -51,6 +51,16 @@ impl std::fmt::Display for Literal {
 pub enum Numeric {
     Int(i32),
     Float(f32),
+}
+
+impl Hash for Numeric {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            Numeric::Int(i) => i.hash(state),
+            Numeric::Float(f) => f.to_bits().hash(state)
+        }
+    }
 }
 
 impl Numeric {

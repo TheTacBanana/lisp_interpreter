@@ -84,12 +84,14 @@ pub fn import(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpret
 
     let id = interpreter
         .error_writer
-        .write().unwrap()
+        .write()
+        .unwrap()
         .add_file(file_path, contents.clone());
 
-    let ast = LexerParser::from_string(id, contents, &interpreter.error_writer.read().unwrap()).map_err(|_| {
-        InterpreterError::spanned(InterpreterErrorKind::ErrorInParsingImport, total_span)
-    })?;
+    let ast = LexerParser::from_string(id, contents, &interpreter.error_writer.read().unwrap())
+        .map_err(|_| {
+            InterpreterError::spanned(InterpreterErrorKind::ErrorInParsingImport, total_span)
+        })?;
 
     for node in ast {
         interpreter.interpret(&node)?;
@@ -98,10 +100,7 @@ pub fn import(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpret
     Ok(())
 }
 
-pub fn if_macro(
-    interpreter: &InterpreterContext,
-    mut ast: Vec<&AST>,
-) -> InterpreterResult<*const AST> {
+pub fn if_macro(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<usize> {
     if ast.len() != 3 {
         Err(InterpreterError::spanned(
             InterpreterErrorKind::ExpectedNParams {
@@ -134,9 +133,9 @@ pub fn if_macro(
     };
 
     if result {
-        Ok(drain.next().unwrap())
+        Ok(1)
     } else {
-        Ok(drain.nth(1).unwrap())
+        Ok(2)
     }
 }
 
@@ -322,7 +321,9 @@ macro_rules! cmp_op {
                 }),
                 e => e,
             });
-            interpreter.stack.push_data(StackObject::Value(Literal::Boolean(out?)));
+            interpreter
+                .stack
+                .push_data(StackObject::Value(Literal::Boolean(out?)));
 
             Ok(())
         }
@@ -354,7 +355,9 @@ pub fn empty(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()
         }
     };
 
-    interpreter.stack.push_data(StackObject::Value(Literal::Boolean(val)));
+    interpreter
+        .stack
+        .push_data(StackObject::Value(Literal::Boolean(val)));
     Ok(())
 }
 
@@ -424,7 +427,8 @@ pub fn cons(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()>
 
     let ptr = {
         let tail = interpreter.stack.pop_data()?;
-        let head = interpreter.stack
+        let head = interpreter
+            .stack
             .pop_data()?
             .deref(interpreter)?
             .clone_to_unallocated();
