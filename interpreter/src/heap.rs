@@ -145,6 +145,19 @@ impl GarbageCollector {
                     write_lock[*index] = None;
                     free_vec.push(*index);
                 }
+
+                let last = write_lock.iter().enumerate().rev().find_map(|(i, o)| {
+                    if o.is_some() {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                });
+
+                if let Some(last) = last {
+                    write_lock.truncate(last + 1);
+                    *free_vec = free_vec.drain(..).filter(|i| *i < (last + 1)).collect()
+                }
             }
         }
     }
