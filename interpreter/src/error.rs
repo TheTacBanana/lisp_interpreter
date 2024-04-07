@@ -67,6 +67,9 @@ pub enum InterpreterErrorKind {
     // Definition Syntax
     InvalidFuncParamNames,
 
+    InvalidLetStatement,
+    InvalidLetBindingForm,
+    InvalidLetBindingName,
 }
 
 impl FormattedError for InterpreterError {
@@ -121,6 +124,9 @@ impl std::fmt::Display for InterpreterErrorKind {
                 temp = format!("Cannot compare '{}' and '{}'", l, r);
                 &temp
             },
+            InterpreterErrorKind::InvalidLetStatement => "let statement must be in the form `let ((ident value) ..) (block)`",
+            InterpreterErrorKind::InvalidLetBindingForm => "let binding must be in the form `(ident value)`",
+            InterpreterErrorKind::InvalidLetBindingName => "Invalid identifier name in let binding",
         };
         write!(f, "{s}")
     }

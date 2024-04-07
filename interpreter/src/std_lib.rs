@@ -1,3 +1,4 @@
+use core::error::FormattedError;
 use std::ops::Deref;
 use std::{env, fs::File, io::Read};
 
@@ -101,24 +102,21 @@ pub fn import(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpret
 }
 
 pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
-    // TODO: Error handling
-
-    println!("{ast:#?}");
-    let inner_block = ast.pop().unwrap();
-    let bindings = ast.pop().unwrap();
-
-    if ast.len() > 0 {
-        return Err(InterpreterError::new(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 2,
-                received: ast.len() + 2,
-            },
+    if ast.len() != 2 {
+        return Err(InterpreterError::optional_span(
+            InterpreterErrorKind::InvalidLetStatement,
+            ast.total_span(),
         ));
     }
 
+    let inner_block = ast.pop().unwrap();
+    let bindings = ast.pop().unwrap();
+
     let AST::Operation(first, others, span) = bindings else {
-        todo!()
-        // TODO:
+        return Err(InterpreterError::spanned(
+            InterpreterErrorKind::InvalidLetBindingForm,
+            bindings.span(),
+        ));
     };
     let mut binding_list = vec![first.deref()];
     binding_list.extend(others);
@@ -129,15 +127,17 @@ pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpreter
             AST::Operation(name, value, op_span) => {
                 let bind_name = match &**name {
                     AST::Identifier(name, _) => name,
-                    e => todo!("{e}"),
+                    e => {
+                        return Err(InterpreterError::spanned(
+                            InterpreterErrorKind::InvalidLetBindingName,
+                            e.span(),
+                        ))
+                    }
                 };
 
                 if value.len() > 1 {
                     return Err(InterpreterError::spanned(
-                        InterpreterErrorKind::ExpectedNParams {
-                            expected: 1,
-                            received: value.len(),
-                        },
+                        InterpreterErrorKind::InvalidLetBindingForm,
                         *op_span,
                     ));
                 }
@@ -147,7 +147,12 @@ pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpreter
 
                 Ok((bind_name.clone(), value.heap_alloc(interpreter)?))
             }
-            _ => todo!(),
+            e => {
+                return Err(InterpreterError::spanned(
+                    InterpreterErrorKind::InvalidLetBindingForm,
+                    e.span(),
+                ))
+            }
         })
         .collect::<Vec<_>>();
 
