@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, fmt::{Debug, Display}, path::PathBuf};
 
 use crate::token::span::Span;
 
@@ -169,4 +169,62 @@ pub trait FormattedError {
     fn message(&self) -> String;
 
     fn span(&self) -> Option<Span>;
+}
+
+#[derive(Debug, Clone)]
+pub struct LispError<E: Display> {
+    pub span: Option<Span>,
+    pub kind: E,
+}
+
+impl<E: Display + Debug> std::error::Error for LispError<E> {}
+
+impl<E: Display> std::fmt::Display for LispError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} {}", self.span, self.kind)
+    }
+}
+
+impl<E: Display> LispError<E> {
+    pub fn new(kind: E) -> Self {
+        Self { span: None, kind }
+    }
+
+    pub fn optional_span(kind: E, span: Option<Span>) -> Self {
+        Self { span, kind }
+    }
+
+    pub fn spanned(kind: E, span: Span) -> Self {
+        Self {
+            span: Some(span),
+            kind,
+        }
+    }
+
+    pub fn add_if_not_spanned(&mut self, span: Span) {
+        self.span.get_or_insert(span);
+    }
+}
+
+impl<E: Display> FormattedError for LispError<E> {
+    fn message(&self) -> String {
+        self.kind.to_string()
+    }
+
+    fn span(&self) -> Option<Span> {
+        self.span
+    }
+}
+
+pub trait AddIfNotSpannedExt {
+    fn map_not_spanned(self, span: Span) -> Self;
+}
+
+impl<T, E: Display> AddIfNotSpannedExt for Result<T, LispError<E>> {
+    fn map_not_spanned(mut self, span: Span) -> Self {
+        if let Err(err) = &mut self {
+            err.add_if_not_spanned(span);
+        }
+        self
+    }
 }

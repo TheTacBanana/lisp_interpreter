@@ -1,13 +1,11 @@
 use std::collections::VecDeque;
 
 use crate::{
-    lexer::token::{LexerToken, LexerTokenKind},
-    literal::Literal,
-    token::{
+    error::FormattedError, lexer::token::{LexerToken, LexerTokenKind}, literal::Literal, token::{
         span::Span,
         stream::{TokenStream, TokenStreamExt},
         Token,
-    },
+    }
 };
 
 use self::{
@@ -126,7 +124,7 @@ impl Parser {
             TK::Symbol(s) if &s == "(" => {
                 let index = match stream.opposite(TK::Symbol(s)) {
                     Ok(index) => index,
-                    Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
+                    Err(_) => Err(ParserError::spanned(ParseTokenError::MissingBracket, span))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
                 let end_token = block.pop_back().unwrap();
@@ -140,7 +138,7 @@ impl Parser {
 
             TK::Symbol(s) if &s == ".." => Ok(AST::Identifier("..".to_string(), span)),
 
-            _ => Err(ParserError::new(ParseTokenError::NoItemFound, span)),
+            _ => Err(ParserError::spanned(ParseTokenError::NoItemFound, span)),
         }
     }
 
@@ -160,7 +158,7 @@ impl Parser {
     }
 
     fn parse_quoted(stream: &mut TokenStream, quote_span: Span) -> Result<AST, ParserError> {
-        let Token { kind, span } = stream.pop_front().ok_or(ParserError::new(
+        let Token { kind, span } = stream.pop_front().ok_or(ParserError::spanned(
             ParseTokenError::QuoteWithoutItem,
             quote_span,
         ))?;
@@ -168,7 +166,7 @@ impl Parser {
             ParserTokenKind::Symbol(s) if &s == "(" => {
                 let index = match stream.opposite(ParserTokenKind::Symbol(s)) {
                     Ok(index) => index,
-                    Err(_) => Err(ParserError::new(ParseTokenError::MissingBracket, span))?,
+                    Err(_) => Err(ParserError::spanned(ParseTokenError::MissingBracket, span))?,
                 };
                 let mut block = stream.take_n(index + 1).unwrap();
                 let last = block.pop_back().unwrap();
@@ -178,7 +176,7 @@ impl Parser {
             ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident, span)),
             ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit, span)),
             ParserTokenKind::String(s) => Ok(AST::StringLiteral(s, span)),
-            _ => Err(ParserError::new(ParseTokenError::ItemCannotBeQuoted, span)),
+            _ => Err(ParserError::spanned(ParseTokenError::ItemCannotBeQuoted, span)),
         }
     }
 

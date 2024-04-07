@@ -40,7 +40,7 @@ impl Lexer {
                 Ok(token) => token,
                 Err(token_err) => {
                     let (token, err) = token_err.unpack();
-                    self.errors.push(LexerError::new(err, token.span));
+                    self.errors.push(LexerError::spanned(err, token.span));
                     token
                 }
             };

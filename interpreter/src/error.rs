@@ -1,53 +1,7 @@
-use core::{error::FormattedError, token::span::Span};
-use std::{error::Error, ops::{Range, RangeFrom}};
+use core::error::LispError;
+use std::ops::RangeFrom;
 
-#[derive(Debug, Clone)]
-pub struct InterpreterError {
-    span: Option<Span>,
-    kind: InterpreterErrorKind,
-}
-
-impl std::fmt::Display for InterpreterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?} {}", self.span, self.kind)
-    }
-}
-
-impl Error for InterpreterError {}
-
-impl InterpreterError {
-    pub fn new(kind: InterpreterErrorKind) -> Self {
-        Self { span: None, kind }
-    }
-
-    pub fn optional_span(kind: InterpreterErrorKind, span: Option<Span>) -> Self {
-        Self { span, kind }
-    }
-
-    pub fn spanned(kind: InterpreterErrorKind, span: Span) -> Self {
-        Self {
-            span: Some(span),
-            kind,
-        }
-    }
-
-    pub fn add_if_not_spanned(&mut self, span: Span) {
-        self.span.get_or_insert(span);
-    }
-}
-
-pub trait AddIfNotSpannedExt {
-    fn map_not_spanned(self, span: Span) -> Self;
-}
-
-impl<T> AddIfNotSpannedExt for Result<T, InterpreterError> {
-    fn map_not_spanned(mut self, span: Span) -> Self {
-        if let Err(err) = &mut self {
-            err.add_if_not_spanned(span);
-        }
-        self
-    }
-}
+pub type InterpreterError = LispError<InterpreterErrorKind>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InterpreterErrorKind {
@@ -83,16 +37,6 @@ pub enum InterpreterErrorKind {
     InvalidLetStatement,
     InvalidLetBindingForm,
     InvalidLetBindingName,
-}
-
-impl FormattedError for InterpreterError {
-    fn message(&self) -> String {
-        self.kind.to_string()
-    }
-
-    fn span(&self) -> Option<Span> {
-        self.span
-    }
 }
 
 impl std::fmt::Display for InterpreterErrorKind {
@@ -151,5 +95,3 @@ impl std::fmt::Display for InterpreterErrorKind {
         write!(f, "{s}")
     }
 }
-
-impl Error for InterpreterErrorKind {}

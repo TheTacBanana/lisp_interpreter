@@ -1,4 +1,7 @@
-use crate::{error::{ErrorWriter, FormattedError}, token::{span::Span, ErrorToken, Token}};
+use crate::{
+    error::{ErrorWriter, FormattedError, LispError},
+    token::{span::Span, ErrorToken, Token},
+};
 use std::error::Error;
 
 use super::literal::NumericLiteral;
@@ -73,27 +76,7 @@ impl LexerTokenKind {
     }
 }
 
-#[derive(Debug)]
-pub struct LexerError {
-    pub span: Span,
-    pub kind: LexerTokenErrorKind,
-}
-
-impl LexerError {
-    pub fn new(kind: LexerTokenErrorKind, span: Span) -> Self {
-        Self { span, kind }
-    }
-}
-
-impl FormattedError for LexerError {
-    fn message(&self) -> String {
-        self.kind.to_string()
-    }
-
-    fn span(&self) -> Option<Span> {
-        Some(self.span)
-    }
-}
+pub type LexerError = LispError<LexerTokenErrorKind>;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum LexerTokenErrorKind {
@@ -137,5 +120,3 @@ impl std::fmt::Display for LexerTokenErrorKind {
         Ok(())
     }
 }
-
-impl Error for LexerTokenErrorKind {}

@@ -3,7 +3,7 @@ use std::{
 };
 
 use crate::{
-    error::{ErrorWriter, FormattedError}, literal::Literal, token::{span::Span, Token}
+    error::{ErrorWriter, FormattedError, LispError}, literal::Literal, token::{span::Span, Token}
 };
 
 pub type ParserToken = Token<ParserTokenKind>;
@@ -16,28 +16,7 @@ pub enum ParserTokenKind {
     String(String),
 }
 
-#[derive(Debug)]
-pub struct ParserError {
-    pub span: Span,
-    pub kind: ParseTokenError,
-}
-
-impl ParserError {
-    pub fn new(kind: ParseTokenError, span: Span) -> Self {
-        Self { span, kind }
-    }
-}
-
-impl FormattedError for ParserError {
-    fn message(&self) -> String {
-        self.kind.to_string()
-    }
-
-    fn span(&self) -> Option<Span> {
-        Some(self.span)
-    }
-}
-
+pub type ParserError = LispError<ParseTokenError>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum ParseTokenError {

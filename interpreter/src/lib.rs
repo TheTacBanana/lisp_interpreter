@@ -9,9 +9,9 @@ use std::{
 };
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
-use core::{error::ErrorWriter, parser::ast::AST, token::span::Span};
+use core::{error::{AddIfNotSpannedExt, ErrorWriter}, parser::ast::AST, token::span::Span};
 use deref::InterpreterDeref;
-use error::{AddIfNotSpannedExt, InterpreterError, InterpreterErrorKind};
+use error::{InterpreterError, InterpreterErrorKind};
 use frame::Frame;
 use func::Func;
 use heap::InterpreterHeap;
