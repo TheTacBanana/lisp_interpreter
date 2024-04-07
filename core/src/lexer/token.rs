@@ -1,8 +1,7 @@
 use crate::{
-    error::{ErrorWriter, FormattedError, LispError},
-    token::{span::Span, ErrorToken, Token},
+    error::{LispError},
+    token::{ErrorToken, Token},
 };
-use std::error::Error;
 
 use super::literal::NumericLiteral;
 

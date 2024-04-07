@@ -1,7 +1,7 @@
 use std::{
     ops::{Deref, DerefMut},
     sync::{
-        MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        MappedRwLockWriteGuard, RwLock, RwLockWriteGuard,
     },
 };
 

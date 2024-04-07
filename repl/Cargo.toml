@@ -9,4 +9,4 @@ edition = "2021"
 anyhow = "1.0.81"
 core = { path = "../core"}
 interpreter = { path = "../interpreter"}
-rustyline = "14.0.0"
+rustyline = { version = "14.0.0", features = ["derive"] }

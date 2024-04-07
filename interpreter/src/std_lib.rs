@@ -1,4 +1,3 @@
-use core::error::FormattedError;
 use std::ops::Deref;
 use std::{env, fs::File, io::Read};
 

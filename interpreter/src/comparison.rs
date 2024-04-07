@@ -136,7 +136,7 @@ impl InterpreterComparison<HeapObject> for ObjectRef<'_> {
     fn object_eq(
         &self,
         rhs: &HeapObject,
-        interpreter: &InterpreterContext,
+        _interpreter: &InterpreterContext,
     ) -> InterpreterResult<bool> {
         match (self, rhs) {
             (ObjectRef::Value(l), HeapObject::Value(r)) => Ok(l == r),
@@ -163,7 +163,7 @@ impl InterpreterComparison<ObjectRef<'_>> for HeapObject {
     fn object_eq(
         &self,
         rhs: &ObjectRef<'_>,
-        interpreter: &InterpreterContext,
+        _interpreter: &InterpreterContext,
     ) -> InterpreterResult<bool> {
         match (self, rhs) {
             (HeapObject::Value(l), ObjectRef::Value(r)) => Ok(l == r),

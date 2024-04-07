@@ -1,7 +1,7 @@
 use std::{
-    fmt::{Debug, Display},
+    fmt::{Debug},
     ops::Deref,
-    sync::{Arc, MappedRwLockReadGuard, MappedRwLockWriteGuard},
+    sync::{Arc, MappedRwLockReadGuard},
 };
 
 use core::literal::Literal;

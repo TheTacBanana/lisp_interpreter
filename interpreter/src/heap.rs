@@ -1,10 +1,6 @@
-use core::literal::Literal;
 use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    fmt::Display,
     ops::Deref,
-    sync::{Arc, MappedRwLockReadGuard, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock, RwLockReadGuard},
     thread::JoinHandle,
     time::Duration,
 };
@@ -72,7 +68,7 @@ impl InterpreterHeap {
         let mut heap_index = store_write.get_mut(id);
         let arc = Arc::new(id);
         let temp = ObjectPointer::Heap(arc.clone());
-        heap_index.as_mut().unwrap().insert((obj, arc));
+        let _ = heap_index.as_mut().unwrap().insert((obj, arc));
         temp
     }
 }

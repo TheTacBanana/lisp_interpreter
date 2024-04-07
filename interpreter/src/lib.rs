@@ -105,7 +105,7 @@ impl InterpreterContext {
         alloc_func(self, Func::Native(">=".into(), std_lib::gteq));
     }
 
-    pub fn start(&mut self, ast: Vec<AST>) {
+    pub fn start(&self, ast: Vec<AST>) {
         for node in ast {
             if let Err(err) = self.interpret(&node) {
                 let _ = self.error_writer.read().unwrap().report_errors(vec![err]);

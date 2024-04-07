@@ -21,7 +21,7 @@ pub fn main() -> Result<()> {
     let error_writer = ErrorWriter::new((&file_names[0]).into(), contents.clone());
     let ast = LexerParser::from_string(0, contents, &error_writer).unwrap();
 
-    let mut context = InterpreterContext::new(error_writer);
+    let context = InterpreterContext::new(error_writer);
     context.start(ast);
 
     Ok(())

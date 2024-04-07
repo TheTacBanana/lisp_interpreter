@@ -3,7 +3,7 @@ use std::{
 };
 
 use crate::{
-    error::{ErrorWriter, FormattedError, LispError}, literal::Literal, token::{span::Span, Token}
+    error::{LispError}, literal::Literal, token::{Token}
 };
 
 pub type ParserToken = Token<ParserTokenKind>;

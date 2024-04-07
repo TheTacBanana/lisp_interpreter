@@ -1,11 +1,13 @@
 use std::collections::VecDeque;
 
 use crate::{
-    error::FormattedError, lexer::token::{LexerToken, LexerTokenKind}, literal::Literal, token::{
+    lexer::token::{LexerToken, LexerTokenKind},
+    literal::Literal,
+    token::{
         span::Span,
         stream::{TokenStream, TokenStreamExt},
         Token,
-    }
+    },
 };
 
 use self::{
@@ -176,7 +178,10 @@ impl Parser {
             ParserTokenKind::Identifier(ident) => Ok(AST::Identifier(ident, span)),
             ParserTokenKind::Literal(lit) => Ok(AST::Literal(lit, span)),
             ParserTokenKind::String(s) => Ok(AST::StringLiteral(s, span)),
-            _ => Err(ParserError::spanned(ParseTokenError::ItemCannotBeQuoted, span)),
+            _ => Err(ParserError::spanned(
+                ParseTokenError::ItemCannotBeQuoted,
+                span,
+            )),
         }
     }
 

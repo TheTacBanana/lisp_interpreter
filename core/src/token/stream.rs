@@ -32,7 +32,7 @@ impl TokenStreamExt for TokenStream {
     }
 
     // TODO: Fix brackets hhh
-    fn opposite(&self, token: ParserTokenKind) -> Result<usize, ()> {
+    fn opposite(&self, _token: ParserTokenKind) -> Result<usize, ()> {
         use ParserTokenKind as Token;
 
         let mut stack = vec!['('];
