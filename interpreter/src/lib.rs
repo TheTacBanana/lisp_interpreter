@@ -81,6 +81,7 @@ impl InterpreterContext {
 
         alloc_func(self, Func::TokenNative("define".into(), std_lib::define));
         alloc_func(self, Func::TokenNative("lambda".into(), std_lib::lambda));
+        alloc_func(self, Func::TokenNative("let".into(), std_lib::let_));
 
         alloc_func(self, Func::Macro("if".into(), std_lib::if_macro));
 

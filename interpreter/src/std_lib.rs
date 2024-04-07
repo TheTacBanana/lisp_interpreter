@@ -100,6 +100,73 @@ pub fn import(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpret
     Ok(())
 }
 
+pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+    // TODO: Error handling
+
+    println!("{ast:#?}");
+    let inner_block = ast.pop().unwrap();
+    let bindings = ast.pop().unwrap();
+
+    if ast.len() > 0 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams {
+                expected: 2,
+                received: ast.len() + 2,
+            },
+        ));
+    }
+
+    let AST::Operation(first, others, span) = bindings else {
+        todo!()
+        // TODO:
+    };
+    let mut binding_list = vec![first.deref()];
+    binding_list.extend(others);
+
+    let mut named_bindings = binding_list
+        .drain(..)
+        .map(|b| match b {
+            AST::Operation(name, value, op_span) => {
+                let bind_name = match &**name {
+                    AST::Identifier(name, _) => name,
+                    e => todo!("{e}"),
+                };
+
+                if value.len() > 1 {
+                    return Err(InterpreterError::spanned(
+                        InterpreterErrorKind::ExpectedNParams {
+                            expected: 1,
+                            received: value.len(),
+                        },
+                        *op_span,
+                    ));
+                }
+
+                interpreter.interpret(&value[0])?;
+                let value = interpreter.stack.pop_data()?;
+
+                Ok((bind_name.clone(), value.heap_alloc(interpreter)?))
+            }
+            _ => todo!(),
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(err) = named_bindings.iter().find(|e| e.is_err()) {
+        return err.clone().map(|_| ());
+    }
+
+    {
+        let mut top_frame = interpreter.stack.top_frame()?;
+        for (name, obj) in named_bindings.drain(..).map(|x| x.unwrap()) {
+            top_frame.insert_local(&name, obj);
+        }
+    }
+
+    interpreter.interpret(inner_block)?;
+
+    Ok(())
+}
+
 pub fn if_macro(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<usize> {
     if ast.len() != 3 {
         Err(InterpreterError::spanned(
@@ -282,6 +349,16 @@ macro_rules! bin_op {
                         Some(UnallocatedObject::Value(Literal::Numeric($l))),
                         ObjectRef::Value(Literal::Numeric($r)),
                     ) => Some(UnallocatedObject::Value(Literal::Numeric($calc))),
+                    (
+                        Some(UnallocatedObject::Value(Literal::Numeric($l))),
+                        ObjectRef::Object(obj),
+                    ) => match obj.deref() {
+                        HeapObject::Value(Literal::Numeric(r)) => {
+                            let $r = *r;
+                            Some(UnallocatedObject::Value(Literal::Numeric($calc)))
+                        }
+                        e => panic!("{e:?}"),
+                    },
                     e => panic!("{e:?}"),
                 }
             });
