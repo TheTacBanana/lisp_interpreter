@@ -11,7 +11,7 @@ use std::{
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
 use core::{error::ErrorWriter, parser::ast::AST, token::span::Span};
 use deref::InterpreterDeref;
-use error::{InterpreterError, InterpreterErrorKind};
+use error::{AddIfNotSpannedExt, InterpreterError, InterpreterErrorKind};
 use frame::Frame;
 use func::Func;
 use heap::InterpreterHeap;
@@ -132,7 +132,7 @@ impl InterpreterContext {
 
             PushFrame(Frame),
             PopFrame,
-            ApplyFunc(u64),
+            ApplyFunc(u64, Span),
         }
 
         let head = ast;
@@ -237,21 +237,21 @@ impl InterpreterContext {
                                 ));
                             }
                             new_ops.push(QueueOp::NamedParams(p.clone()));
-                            new_ops.push(QueueOp::ApplyFunc(func_hash));
+                            new_ops.push(QueueOp::ApplyFunc(func_hash, span));
                             new_ops.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
                         }
                         Func::Native(_, _) => {
                             new_ops.push(QueueOp::CountedParams(param_len));
-                            new_ops.push(QueueOp::ApplyFunc(func_hash));
+                            new_ops.push(QueueOp::ApplyFunc(func_hash, span));
                             new_ops.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
                         }
                         Func::TokenNative(_, _) => {
                             new_ops.push(QueueOp::MacroParams(params));
-                            new_ops.push(QueueOp::ApplyFunc(func_hash));
+                            new_ops.push(QueueOp::ApplyFunc(func_hash, span));
                         }
                         Func::Macro(_, _) => {
                             new_ops.push(QueueOp::MacroParams(params));
-                            new_ops.push(QueueOp::ApplyFunc(func_hash));
+                            new_ops.push(QueueOp::ApplyFunc(func_hash, span));
                             new_frame = false;
                         }
                     }
@@ -275,7 +275,7 @@ impl InterpreterContext {
                     self.stack.pop_frame()?;
                 }
 
-                QueueOp::ApplyFunc(func_hash) => {
+                QueueOp::ApplyFunc(func_hash, span) => {
                     let func = func_cache.get(&func_hash).unwrap();
 
                     let params = op_stack.last().unwrap();
@@ -295,13 +295,13 @@ impl InterpreterContext {
                             op_stack.push(QueueOp::EvalLiteral(ast.clone()))
                         }
                         (QueueOp::CountedParams(n), Func::Native(_, native_func)) => {
-                            native_func(self, *n)?
+                            native_func(self, *n).map_not_spanned(span)?
                         }
                         (QueueOp::MacroParams(params), Func::TokenNative(_, token_native)) => {
-                            token_native(self, params.to_vec())?;
+                            token_native(self, params.to_vec()).map_not_spanned(span)?;
                         }
                         (QueueOp::MacroParams(params), Func::Macro(_, macro_f)) => {
-                            let out = macro_f(self, params.to_vec())?;
+                            let out = macro_f(self, params.to_vec()).map_not_spanned(span)?;
                             op_stack.push(QueueOp::Eval(params[out]));
                         }
                         e => panic!("{e:?}"),

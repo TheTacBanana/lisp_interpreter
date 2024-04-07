@@ -31,8 +31,20 @@ impl InterpreterError {
         }
     }
 
-    pub fn add_if_not_spanned(mut self, span: Span) -> Self {
+    pub fn add_if_not_spanned(&mut self, span: Span) {
         self.span.get_or_insert(span);
+    }
+}
+
+pub trait AddIfNotSpannedExt {
+    fn map_not_spanned(self, span: Span) -> Self;
+}
+
+impl<T> AddIfNotSpannedExt for Result<T, InterpreterError> {
+    fn map_not_spanned(mut self, span: Span) -> Self {
+        if let Err(err) = &mut self {
+            err.add_if_not_spanned(span);
+        }
         self
     }
 }
@@ -50,8 +62,8 @@ pub enum InterpreterErrorKind {
     NullDeref,
     CannotAllocateNull, // TODO:
     PointerDoesNotExist, // TODO:
-    FailedOperation, // TODO:
     CannotCompare(String, String),
+    CannotPerformOperation(String, String, String),
 
     // Stack Related
     EmptyStack,
@@ -103,7 +115,6 @@ impl std::fmt::Display for InterpreterErrorKind {
             InterpreterErrorKind::EmptyDataStack => "Data Stack is empty, cannot pop Data Stack",
             InterpreterErrorKind::StackIndexOutOfRange => "Pointer exceeds limit of stack",
             InterpreterErrorKind::PointerDoesNotExist => "Pointer does not.", //TODO:
-            InterpreterErrorKind::FailedOperation => "Operation arguments not valid",
             InterpreterErrorKind::CannotAllocateNull => {
                 "Cannot allocate whatever the fuck this is to the heap" //TODO:
             }
@@ -127,6 +138,10 @@ impl std::fmt::Display for InterpreterErrorKind {
             InterpreterErrorKind::InvalidLetStatement => "let statement must be in the form `let ((ident value) ..) (block)`",
             InterpreterErrorKind::InvalidLetBindingForm => "let binding must be in the form `(ident value)`",
             InterpreterErrorKind::InvalidLetBindingName => "Invalid identifier name in let binding",
+            InterpreterErrorKind::CannotPerformOperation(op, l, r) => {
+                temp = format!("Cannot perform '{op}' between '{l}' and '{r}'");
+                &temp
+            },
         };
         write!(f, "{s}")
     }

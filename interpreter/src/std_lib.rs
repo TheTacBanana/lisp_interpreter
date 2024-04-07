@@ -112,7 +112,7 @@ pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpreter
     let inner_block = ast.pop().unwrap();
     let bindings = ast.pop().unwrap();
 
-    let AST::Operation(first, others, span) = bindings else {
+    let AST::Operation(first, others, _) = bindings else {
         return Err(InterpreterError::spanned(
             InterpreterErrorKind::InvalidLetBindingForm,
             bindings.span(),
@@ -338,7 +338,7 @@ pub fn write(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()
 }
 
 macro_rules! bin_op {
-    ($name:ident, $l:ident, $r:ident, $calc:expr) => {
+    ($name:ident, $l:ident, $r:ident, $calc:expr, $op:expr) => {
         pub fn $name(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
             let mut objs = Vec::new();
             for _ in 0..n {
@@ -347,29 +347,47 @@ macro_rules! bin_op {
             objs.reverse();
 
             let drain = objs.drain(..);
-            let out = drain.fold(None, |out, obj| {
+            let out = drain.fold(Ok(None), |out, obj| {
                 match (out, obj.deref(interpreter).unwrap()) {
-                    (None, v) => Some(v.clone_to_unallocated()),
+                    (Ok(None), v) => Ok(Some(v.clone_to_unallocated())),
                     (
-                        Some(UnallocatedObject::Value(Literal::Numeric($l))),
+                        Ok(Some(UnallocatedObject::Value(Literal::Numeric($l)))),
                         ObjectRef::Value(Literal::Numeric($r)),
-                    ) => Some(UnallocatedObject::Value(Literal::Numeric($calc))),
+                    ) => Ok(Some(UnallocatedObject::Value(Literal::Numeric($calc)))),
                     (
-                        Some(UnallocatedObject::Value(Literal::Numeric($l))),
+                        Ok(Some(UnallocatedObject::Value(Literal::Numeric($l)))),
                         ObjectRef::Object(obj),
                     ) => match obj.deref() {
                         HeapObject::Value(Literal::Numeric(r)) => {
                             let $r = *r;
-                            Some(UnallocatedObject::Value(Literal::Numeric($calc)))
+                            Ok(Some(UnallocatedObject::Value(Literal::Numeric($calc))))
                         }
-                        e => panic!("{e:?}"),
+                        $r => Err(InterpreterError::new(
+                            InterpreterErrorKind::CannotPerformOperation(
+                                format!("{}", $op),
+                                $l.interpreter_fmt(interpreter),
+                                $r.interpreter_fmt(interpreter),
+                            ),
+                        )),
                     },
-                    e => panic!("{e:?}"),
+                    (Ok(Some($l)), $r) => Err(InterpreterError::new(
+                        InterpreterErrorKind::CannotPerformOperation(
+                            format!("{}", $op),
+                            $l.interpreter_fmt(interpreter),
+                            $r.interpreter_fmt(interpreter),
+                        ),
+                    )),
+                    (e @ Err(_), _) => e,
                 }
-            });
+            })?;
 
             let stack_obj = out
-                .ok_or(InterpreterError::new(InterpreterErrorKind::FailedOperation))?
+                .ok_or(InterpreterError::new(
+                    InterpreterErrorKind::ExpectedNParams {
+                        expected: 1,
+                        received: 0,
+                    },
+                ))?
                 .stack_alloc(interpreter)?;
 
             interpreter.stack.push_data(stack_obj);
@@ -379,10 +397,10 @@ macro_rules! bin_op {
     };
 }
 
-bin_op!(add, l, r, l + r);
-bin_op!(sub, l, r, l - r);
-bin_op!(mul, l, r, l * r);
-bin_op!(div, l, r, l / r);
+bin_op!(add, l, r, l + r, "+");
+bin_op!(sub, l, r, l - r, "-");
+bin_op!(mul, l, r, l * r, "*");
+bin_op!(div, l, r, l / r, "/");
 
 macro_rules! cmp_op {
     ($name:ident, $l:ident, $r:ident, $i:ident, $calc:expr) => {

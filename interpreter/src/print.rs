@@ -1,6 +1,8 @@
+use core::literal::Numeric;
+
 use crate::{
     frame::Frame,
-    object::{HeapObject, ObjectPointer, ObjectRef, StackObject},
+    object::{HeapObject, ObjectPointer, ObjectRef, StackObject, UnallocatedObject},
     InterpreterContext,
 };
 
@@ -56,6 +58,25 @@ impl InterpreterPrint for ObjectRef<'_> {
             ObjectRef::Value(v) => format!("{v}"),
             ObjectRef::Object(obj) => obj.interpreter_fmt(i),
         }
+    }
+}
+
+impl InterpreterPrint for UnallocatedObject {
+    fn interpreter_fmt(&self, i: &InterpreterContext) -> String {
+        match self {
+            UnallocatedObject::Value(v) => format!("{v}"),
+            UnallocatedObject::Func(f) => format!("{f}"),
+            UnallocatedObject::String(s) => format!("\"{s}\""),
+            UnallocatedObject::List(h, t) =>
+                format!("{}:{}", h.interpreter_fmt(i), t.interpreter_fmt(i)),
+            UnallocatedObject::Null => format!("()"),
+        }
+    }
+}
+
+impl InterpreterPrint for Numeric {
+    fn interpreter_fmt(&self, _i: &InterpreterContext) -> String {
+        format!("{self}")
     }
 }
 
