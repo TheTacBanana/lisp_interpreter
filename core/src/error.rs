@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, fmt::{Debug, Display}, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    path::PathBuf,
+};
 
 use crate::token::span::Span;
 
@@ -133,14 +137,22 @@ pub trait FormattedError {
         let Some(span) = self.span() else {
             return Ok(());
         };
+        let mut numbered = false;
         if let Some(file_location) = ew.link_file(span) {
-            println!(" --> {}", file_location)
+            println!(" --> {}", file_location);
+            numbered = true;
         }
 
         let mut line_spans = ew.span_to_lines(span);
         let numbered_line_spans = line_spans
             .drain(..)
-            .map(|l| (l.start.line.to_string(), l))
+            .map(|l| {
+                if numbered {
+                    (l.start.line.to_string(), l)
+                } else {
+                    (String::new(), l)
+                }
+            })
             .collect::<Vec<_>>();
         let max_num_length = numbered_line_spans
             .iter()
