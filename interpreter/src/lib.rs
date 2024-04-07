@@ -229,10 +229,7 @@ impl InterpreterContext {
                         Func::Defined(_, p, _) => {
                             if p.len() != param_len {
                                 return Err(InterpreterError::spanned(
-                                    InterpreterErrorKind::ExpectedNParams {
-                                        expected: p.len(),
-                                        received: param_len,
-                                    },
+                                    InterpreterErrorKind::ExpectedNParams(p.len(), param_len),
                                     span,
                                 ));
                             }

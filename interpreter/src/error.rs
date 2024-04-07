@@ -1,5 +1,5 @@
 use core::{error::FormattedError, token::span::Span};
-use std::error::Error;
+use std::{error::Error, ops::{Range, RangeFrom}};
 
 #[derive(Debug, Clone)]
 pub struct InterpreterError {
@@ -55,7 +55,8 @@ pub enum InterpreterErrorKind {
     CantResolveIdentifier(String),
     IsNotParamName(String),
     CannotCall(String),
-    ExpectedNParams { expected: usize, received: usize },
+    ExpectedNOrMoreParams(RangeFrom<usize>, usize),
+    ExpectedNParams(usize, usize),
 
     // Failed Operation
     ExpectedList,
@@ -120,8 +121,12 @@ impl std::fmt::Display for InterpreterErrorKind {
             }
             InterpreterErrorKind::ExpectedList => "Operation expected a List",
             InterpreterErrorKind::InvalidFuncParamNames => "Invalid Param names",
-            InterpreterErrorKind::ExpectedNParams { expected, received } => {
-                temp = format!("Operation expected {expected} parameters received {received}");
+            InterpreterErrorKind::ExpectedNOrMoreParams(expected, received) => {
+                temp = format!("Operation expected {expected:?} parameters received {received}");
+                &temp
+            }
+            InterpreterErrorKind::ExpectedNParams(expected, received) => {
+                temp = format!("Operation expected {expected:?} parameters received {received}");
                 &temp
             }
             InterpreterErrorKind::EmptyImport => "Import is empty",

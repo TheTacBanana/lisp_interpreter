@@ -175,10 +175,7 @@ pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpreter
 pub fn if_macro(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<usize> {
     if ast.len() != 3 {
         Err(InterpreterError::spanned(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 3,
-                received: ast.len(),
-            },
+            InterpreterErrorKind::ExpectedNParams(3, ast.len()),
             {
                 if let Some(span) = ast
                     .iter()
@@ -214,10 +211,7 @@ pub fn if_macro(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpr
 pub fn define(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     if ast.len() > 2 || ast.is_empty() {
         return Err(InterpreterError::new(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 2,
-                received: ast.len(),
-            },
+            InterpreterErrorKind::ExpectedNParams(2, ast.len()),
         ));
     }
 
@@ -269,10 +263,7 @@ pub fn define(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpret
 pub fn lambda(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
     if ast.len() > 2 || ast.is_empty() {
         return Err(InterpreterError::new(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 2,
-                received: ast.len(),
-            },
+            InterpreterErrorKind::ExpectedNParams(2, ast.len()),
         ));
     }
 
@@ -383,10 +374,7 @@ macro_rules! bin_op {
 
             let stack_obj = out
                 .ok_or(InterpreterError::new(
-                    InterpreterErrorKind::ExpectedNParams {
-                        expected: 1,
-                        received: 0,
-                    },
+                    InterpreterErrorKind::ExpectedNOrMoreParams(1usize.., 0),
                 ))?
                 .stack_alloc(interpreter)?;
 
@@ -439,10 +427,7 @@ cmp_op!(gteq, l, r, i, l.object_cmp(&r, i)?.is_ge());
 pub fn empty(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
         return Err(InterpreterError::new(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 1,
-                received: n,
-            },
+            InterpreterErrorKind::ExpectedNParams(1, n),
         ));
     }
 
@@ -464,10 +449,7 @@ pub fn empty(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()
 pub fn car(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
         return Err(InterpreterError::new(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 1,
-                received: n,
-            },
+            InterpreterErrorKind::ExpectedNParams(1, n),
         ));
     }
 
@@ -491,10 +473,7 @@ pub fn car(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> 
 pub fn cdr(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 1 {
         return Err(InterpreterError::new(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 1,
-                received: n,
-            },
+            InterpreterErrorKind::ExpectedNParams(1, n),
         ));
     }
 
@@ -518,10 +497,7 @@ pub fn cdr(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> 
 pub fn cons(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
     if n != 2 {
         return Err(InterpreterError::new(
-            InterpreterErrorKind::ExpectedNParams {
-                expected: 1,
-                received: n,
-            },
+            InterpreterErrorKind::ExpectedNParams(2, n),
         ));
     }
 
