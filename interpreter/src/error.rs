@@ -20,6 +20,7 @@ pub enum InterpreterErrorKind {
     PointerDoesNotExist, // TODO:
     CannotCompare(String, String),
     CannotPerformOperation(String, String, String),
+    CannotConvertType(String, String),
 
     // Stack Related
     EmptyStack,
@@ -99,6 +100,10 @@ impl std::fmt::Display for InterpreterErrorKind {
             InterpreterErrorKind::ExpectedString => "Operations expected a String",
             InterpreterErrorKind::CannotOpenFile(file_name) => {
                 temp = format!("Cannot open file '{file_name}'");
+                &temp
+            },
+            InterpreterErrorKind::CannotConvertType(from, to) => {
+                temp = format!("Cannot convert from '{from}' to '{to}'");
                 &temp
             },
         };

@@ -1,3 +1,4 @@
+use core::literal::Numeric;
 use std::ops::Deref;
 use std::{env, fs::File, io::Read};
 
@@ -573,17 +574,71 @@ pub fn string_to_chars(interpreter: &InterpreterContext, n: usize) -> Interprete
 
     let chars = string.chars();
 
-    let head = chars.rev().fold(Ok(ObjectPointer::Null), |tail, next| {
-        match tail {
+    let head = chars
+        .rev()
+        .fold(Ok(ObjectPointer::Null), |tail, next| match tail {
             Ok(tail_pointer) => {
-                let head = UnallocatedObject::Value(Literal::Character(next)).heap_alloc(interpreter)?;
+                let head =
+                    UnallocatedObject::Value(Literal::Character(next)).heap_alloc(interpreter)?;
                 UnallocatedObject::List(head, tail_pointer).heap_alloc(interpreter)
-            },
+            }
             e => e,
-        }
-    })?;
+        })?;
 
     interpreter.stack.push_data(head.stack_alloc(interpreter)?);
 
     Ok(())
 }
+
+macro_rules! string_parse {
+    ($name:ident,$ty:ident,$out:ident,$out_alloc:expr,$ty_name:expr) => {
+        pub fn $name(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
+            if n != 1 {
+                return Err(InterpreterError::new(
+                    InterpreterErrorKind::ExpectedNParams(2, n),
+                ));
+            }
+
+            let string = {
+                let s = interpreter.stack.pop_data()?;
+
+                let ObjectRef::Object(obj) = s.deref(interpreter)? else {
+                    return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+                };
+
+                let HeapObject::String(string) = &*obj.deref() else {
+                    return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+                };
+
+                string.clone()
+            };
+
+            let $out = string.parse::<$ty>().map_err(|_| {
+                InterpreterError::new(InterpreterErrorKind::CannotConvertType(
+                    "String".into(),
+                    $ty_name.into(),
+                ))
+            })?;
+
+            interpreter.stack.push_data($out_alloc);
+
+            Ok(())
+        }
+    };
+}
+
+string_parse!(
+    string_to_int,
+    i32,
+    v,
+    StackObject::Value(Literal::Numeric(Numeric::Int(v))),
+    "Int"
+);
+
+string_parse!(
+    string_to_float,
+    f32,
+    v,
+    StackObject::Value(Literal::Numeric(Numeric::Float(v))),
+    "Int"
+);
