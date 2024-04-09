@@ -102,6 +102,11 @@ impl Lexer {
                     }
                     (Token::String(_), Some(_)) => State::Consume,
 
+                    (Token::Character(cs), Some('\\')) if cs.len() == 1 => State::Consume,
+                    (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => {
+                        State::Consume
+                    }
+
                     (Token::Symbol(_), Some(s)) if Rules::symbol(s) => State::Consume,
 
                     (Token::Whitespace(_), Some(w)) if Rules::whitespace(w) => State::Consume,
@@ -117,10 +122,6 @@ impl Lexer {
 
                     (Token::Identifer(_), Some(i)) if Rules::identifier(i) => State::Consume,
 
-                    (Token::Character(cs), Some('\\')) if cs.len() == 1 => State::Consume,
-                    (Token::Character(cs), Some(c)) if cs.len() == 2 && Rules::character(c) => {
-                        State::Consume
-                    }
 
                     (
                         Token::Numeric(NL::Bin(s) | NL::Oct(s) | NL::Dec(s) | NL::Hex(s)),

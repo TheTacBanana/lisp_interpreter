@@ -100,7 +100,7 @@ pub fn import(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpret
     Ok(())
 }
 
-pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<()> {
+pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<usize> {
     if ast.len() != 2 {
         return Err(InterpreterError::optional_span(
             InterpreterErrorKind::InvalidLetStatement,
@@ -108,7 +108,7 @@ pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpreter
         ));
     }
 
-    let inner_block = ast.pop().unwrap();
+    let _ = ast.pop().unwrap();
     let bindings = ast.pop().unwrap();
 
     let AST::Operation(first, others, _) = bindings else {
@@ -155,8 +155,8 @@ pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpreter
         })
         .collect::<Vec<_>>();
 
-    if let Some(err) = named_bindings.iter().find(|e| e.is_err()) {
-        return err.clone().map(|_| ());
+    if let Some(Err(err)) = named_bindings.iter().find(|e| e.is_err()) {
+        return Err(err.clone());
     }
 
     {
@@ -166,9 +166,7 @@ pub fn let_(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpreter
         }
     }
 
-    interpreter.interpret(inner_block)?;
-
-    Ok(())
+    Ok(1)
 }
 
 pub fn if_macro(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> InterpreterResult<usize> {
