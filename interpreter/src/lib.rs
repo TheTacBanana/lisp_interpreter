@@ -92,6 +92,9 @@ impl InterpreterContext {
 
         alloc_func(self, Func::Native("write".into(), std_lib::write));
 
+        alloc_func(self, Func::Native("file->string".into(), std_lib::file_to_string));
+        alloc_func(self, Func::Native("string->chars".into(), std_lib::string_to_chars));
+
         alloc_func(self, Func::Native("+".into(), std_lib::add));
         alloc_func(self, Func::Native("-".into(), std_lib::sub));
         alloc_func(self, Func::Native("*".into(), std_lib::mul));

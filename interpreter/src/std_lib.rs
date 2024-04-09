@@ -520,3 +520,72 @@ pub fn cons(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()>
 
     Ok(())
 }
+
+pub fn file_to_string(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
+    if n != 1 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams(2, n),
+        ));
+    }
+
+    let file_name = interpreter.stack.pop_data()?;
+
+    let contents = {
+        let ObjectRef::Object(obj) = file_name.deref(interpreter)? else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        let HeapObject::String(file_name) = &*obj.deref() else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        let contents = std::fs::read_to_string(file_name).map_err(|_| {
+            InterpreterError::new(InterpreterErrorKind::CannotOpenFile(file_name.clone()))
+        })?;
+
+        contents
+    };
+
+    let obj = UnallocatedObject::String(contents).stack_alloc(interpreter)?;
+    interpreter.stack.push_data(obj);
+
+    Ok(())
+}
+
+pub fn string_to_chars(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
+    if n != 1 {
+        return Err(InterpreterError::new(
+            InterpreterErrorKind::ExpectedNParams(2, n),
+        ));
+    }
+
+    let string = {
+        let s = interpreter.stack.pop_data()?;
+
+        let ObjectRef::Object(obj) = s.deref(interpreter)? else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        let HeapObject::String(string) = &*obj.deref() else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        string.clone()
+    };
+
+    let chars = string.chars();
+
+    let head = chars.rev().fold(Ok(ObjectPointer::Null), |tail, next| {
+        match tail {
+            Ok(tail_pointer) => {
+                let head = UnallocatedObject::Value(Literal::Character(next)).heap_alloc(interpreter)?;
+                UnallocatedObject::List(head, tail_pointer).heap_alloc(interpreter)
+            },
+            e => e,
+        }
+    })?;
+
+    interpreter.stack.push_data(head.stack_alloc(interpreter)?);
+
+    Ok(())
+}

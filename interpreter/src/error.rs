@@ -14,6 +14,7 @@ pub enum InterpreterErrorKind {
 
     // Failed Operation
     ExpectedList,
+    ExpectedString,
     NullDeref,
     CannotAllocateNull, // TODO:
     PointerDoesNotExist, // TODO:
@@ -34,9 +35,13 @@ pub enum InterpreterErrorKind {
     // Definition Syntax
     InvalidFuncParamNames,
 
+    // Let Errors
     InvalidLetStatement,
     InvalidLetBindingForm,
     InvalidLetBindingName,
+
+    // File IO Errors
+    CannotOpenFile(String),
 }
 
 impl std::fmt::Display for InterpreterErrorKind {
@@ -89,6 +94,11 @@ impl std::fmt::Display for InterpreterErrorKind {
             InterpreterErrorKind::InvalidLetBindingName => "Invalid identifier name in let binding",
             InterpreterErrorKind::CannotPerformOperation(op, l, r) => {
                 temp = format!("Cannot perform '{op}' between '{l}' and '{r}'");
+                &temp
+            },
+            InterpreterErrorKind::ExpectedString => "Operations expected a String",
+            InterpreterErrorKind::CannotOpenFile(file_name) => {
+                temp = format!("Cannot open file '{file_name}'");
                 &temp
             },
         };

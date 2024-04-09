@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use core::{
     error::ErrorWriter,
     LexerParser,
@@ -19,7 +19,7 @@ pub fn main() -> Result<()> {
     file.read_to_string(&mut contents)?;
 
     let error_writer = ErrorWriter::new((&file_names[0]).into(), contents.clone());
-    let ast = LexerParser::from_string(0, contents, &error_writer).unwrap();
+    let Ok(ast) = LexerParser::from_string(0, contents, &error_writer) else { return Ok(()) };
 
     let context = InterpreterContext::new(error_writer);
     context.start(ast);

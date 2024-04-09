@@ -14,7 +14,7 @@ impl Completer for ReplCompleter {
     type Candidate = String;
 
     fn complete(
-        &self, // FIXME should be `&mut self`
+        &self,
         line: &str,
         pos: usize,
         _ctx: &rustyline::Context<'_>,
