@@ -2,14 +2,12 @@
 #![feature(mapped_lock_guards)]
 
 use std::{
-    collections::HashMap,
-    ops::Deref,
-    sync::{Arc, RwLock},
-    thread::JoinHandle,
+    collections::HashMap, mem, ops::Deref, sync::{Arc, RwLock}, thread::JoinHandle
 };
 
 use alloc::{InterpreterHeapAlloc, InterpreterStackAlloc};
-use core::{error::{AddIfNotSpannedExt, ErrorWriter}, parser::ast::AST, token::span::Span};
+use dylib::DynamicLibrary;
+use core::{error::{AddIfNotSpannedExt, ErrorWriter, LispError}, parser::ast::AST, token::span::Span};
 use deref::InterpreterDeref;
 use error::{InterpreterError, InterpreterErrorKind};
 use frame::Frame;
@@ -52,7 +50,7 @@ impl InterpreterContext {
             ident_mapping: RwLock::new(HashMap::new()),
             heap,
             stack: Arc::new(InterpreterStack::new()),
-            gc_thread: gc.spawn_thread(),
+            gc_thread: gc,
         };
         s.with_std();
         s
@@ -244,7 +242,7 @@ impl InterpreterContext {
                             new_ops.push(QueueOp::ApplyFunc(func_hash, span));
                             new_ops.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
                         }
-                        Func::Native(_, _) => {
+                        Func::Native(_, _) | Func::FFI(_, _) => {
                             new_ops.push(QueueOp::CountedParams(param_len));
                             new_ops.push(QueueOp::ApplyFunc(func_hash, span));
                             new_ops.extend(params.drain(..).map(|p| QueueOp::Eval(p)).rev());
@@ -307,6 +305,23 @@ impl InterpreterContext {
                         (QueueOp::MacroParams(params), Func::Macro(_, macro_f)) => {
                             let out = macro_f(self, params.to_vec()).map_not_spanned(span)?;
                             op_stack.push(QueueOp::Eval(params[out]));
+                        }
+                        (QueueOp::CountedParams(n), Func::FFI(lib, symbol)) => {
+                            let path = std::path::Path::new(lib);
+
+                            let lib = match DynamicLibrary::open(Some(path)) {
+                                Err(_) => return Err(LispError::new(InterpreterErrorKind::CannotLoadLib(lib.clone()))),
+                                Ok(libm) => libm,
+                            };
+
+                            let func: extern "C" fn() = unsafe {
+                                match lib.symbol(&symbol) {
+                                    Err(_) => return Err(LispError::new(InterpreterErrorKind::CannotCall(symbol.clone()))),
+                                    Ok(f) => mem::transmute::<*mut u8, _>(f),
+                                }
+                            };
+
+                            func();
                         }
                         e => panic!("{e:?}"),
                     };

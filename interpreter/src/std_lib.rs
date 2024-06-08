@@ -335,8 +335,7 @@ pub fn link_external(interpreter: &InterpreterContext, n: usize) -> InterpreterR
         file_name.clone()
     };
 
-    let ld_path = std::path::Path::new(&file_name);
-    {
+    let symbol = {
         let ObjectRef::Object(obj) = data[1].deref(interpreter)? else {
             return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
         };
@@ -345,20 +344,11 @@ pub fn link_external(interpreter: &InterpreterContext, n: usize) -> InterpreterR
             return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
         };
 
-        let lib = match DynamicLibrary::open(Some(ld_path)) {
-            Err(error) => return Err(LispError::new(InterpreterErrorKind::CannotLoadLib(file_name))),
-            Ok(lib) => lib,
-        };
-
-        let func: extern "C" fn() = unsafe {
-            match lib.symbol(&symbol) {
-                Err(error) => return Err(LispError::new(InterpreterErrorKind::CannotCall(symbol.clone()))),
-                Ok(cosine) => mem::transmute::<*mut u8, _>(cosine),
-            }
-        };
-
-        func();
+        symbol.clone()
     };
+
+    let stack_obj = HeapObject::Func(Func::FFI(file_name, symbol)).stack_alloc(interpreter)?;
+    interpreter.stack.push_data(stack_obj);
 
     Ok(())
 }

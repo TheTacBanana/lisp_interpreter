@@ -1,5 +1,5 @@
 use core::parser::ast::AST;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{hash::{DefaultHasher, Hash, Hasher}, sync::{Arc, Mutex}};
 
 use crate::{InterpreterContext, InterpreterResult};
 
@@ -13,8 +13,8 @@ pub enum Func {
     TokenNative(String, TokenNativeFunc),
     Macro(String, MacroFunc),
     Defined(Option<String>, Vec<String>, AST),
+    FFI(String, String),
 }
-
 
 impl Func {
     pub fn calc_hash(&self) -> u64 {
@@ -32,6 +32,7 @@ impl std::fmt::Display for Func {
             Func::Macro(name, n) => write!(f, "{name} {n:?}"),
             Func::Defined(Some(name), args, _body) => write!(f, "{name}({args:?})"),
             Func::Defined(None, args, _body) => write!(f, "Lambda({args:?})"),
+            Func::FFI(lib, symbol) => write!(f, "{lib}:{symbol}"),
         }
     }
 }

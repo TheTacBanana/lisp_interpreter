@@ -5,7 +5,11 @@ use std::{
     time::Duration,
 };
 
-use crate::{object::{HeapObject, ObjectPointer, ObjectRef}, print::InterpreterPrint, InterpreterContext};
+use crate::{
+    object::{HeapObject, ObjectPointer, ObjectRef},
+    print::InterpreterPrint,
+    InterpreterContext,
+};
 
 pub struct InterpreterHeap {
     pub free_slots: RwLock<Vec<usize>>,
@@ -13,7 +17,7 @@ pub struct InterpreterHeap {
 }
 
 impl InterpreterHeap {
-    pub fn new() -> (Arc<Self>, GarbageCollector) {
+    pub fn new() -> (Arc<Self>, JoinHandle<()>) {
         let heap = Arc::new(Self {
             free_slots: RwLock::new(Vec::new()),
             store: RwLock::new(Vec::new()),
@@ -72,21 +76,23 @@ impl InterpreterHeap {
         temp
     }
 }
+
 pub struct GarbageCollector {
     delay: Duration,
     heap: Arc<InterpreterHeap>,
 }
 
-impl GarbageCollector {
-    pub fn new(heap: Arc<InterpreterHeap>) -> Self {
-        Self {
-            heap,
-            delay: Duration::from_secs_f32(5.0),
-        }
-    }
+// unsafe impl Send for InterpreterHeap {}
 
-    pub fn spawn_thread(self) -> JoinHandle<()> {
-        std::thread::spawn(|| self.run())
+impl GarbageCollector {
+    pub fn new(heap: Arc<InterpreterHeap>) -> JoinHandle<()> {
+        std::thread::spawn(|| {
+            Self {
+                heap,
+                delay: Duration::from_secs_f32(5.0),
+            }
+            .run()
+        })
     }
 
     pub fn run(self) {
