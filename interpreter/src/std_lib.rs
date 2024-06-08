@@ -1,10 +1,14 @@
+use core::error::LispError;
 use core::literal::Numeric;
+use std::mem;
 use std::ops::Deref;
 use std::{env, fs::File, io::Read};
 
 use core::{literal::Literal, parser::ast::AST, LexerParser};
 
 use core::token::span::TotalSpan;
+
+use dylib::DynamicLibrary;
 
 use crate::comparison::InterpreterComparison;
 use crate::object::UnallocatedObject;
@@ -308,6 +312,53 @@ pub fn lambda(interpreter: &InterpreterContext, mut ast: Vec<&AST>) -> Interpret
     .stack_alloc(interpreter)?;
 
     interpreter.stack.push_data(obj);
+
+    Ok(())
+}
+
+pub fn link_external(interpreter: &InterpreterContext, n: usize) -> InterpreterResult<()> {
+    let mut data = Vec::new();
+    for _ in 0..n {
+        data.push(interpreter.stack.pop_data()?);
+    }
+    data.reverse();
+
+    let file_name = {
+        let ObjectRef::Object(obj) = data[0].deref(interpreter)? else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        let HeapObject::String(file_name) = &*obj.deref() else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        file_name.clone()
+    };
+
+    let ld_path = std::path::Path::new(&file_name);
+    {
+        let ObjectRef::Object(obj) = data[1].deref(interpreter)? else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        let HeapObject::String(symbol) = &*obj.deref() else {
+            return Err(InterpreterError::new(InterpreterErrorKind::ExpectedString));
+        };
+
+        let lib = match DynamicLibrary::open(Some(ld_path)) {
+            Err(error) => return Err(LispError::new(InterpreterErrorKind::CannotLoadLib(file_name))),
+            Ok(lib) => lib,
+        };
+
+        let func: extern "C" fn() = unsafe {
+            match lib.symbol(&symbol) {
+                Err(error) => return Err(LispError::new(InterpreterErrorKind::CannotCall(symbol.clone()))),
+                Ok(cosine) => mem::transmute::<*mut u8, _>(cosine),
+            }
+        };
+
+        func();
+    };
 
     Ok(())
 }

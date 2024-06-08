@@ -40,6 +40,15 @@ name = "core"
 version = "0.1.0"
 
 [[package]]
+name = "dylib"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f06c13073013a912b363eee1433572499a2028a6b05432dad09383124d64731e"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "endian-type"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -87,13 +96,15 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "core",
+ "dylib",
+ "libc",
 ]
 
 [[package]]
 name = "libc"
-version = "0.2.153"
+version = "0.2.155"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
+checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
 name = "linux-raw-sys"

@@ -43,6 +43,7 @@ pub enum InterpreterErrorKind {
 
     // File IO Errors
     CannotOpenFile(String),
+    CannotLoadLib(String),
 }
 
 impl std::fmt::Display for InterpreterErrorKind {
@@ -104,6 +105,10 @@ impl std::fmt::Display for InterpreterErrorKind {
             },
             InterpreterErrorKind::CannotConvertType(from, to) => {
                 temp = format!("Cannot convert from '{from}' to '{to}'");
+                &temp
+            },
+            InterpreterErrorKind::CannotLoadLib(file_name) =>{
+                temp = format!("Cannot load lib '{file_name}'");
                 &temp
             },
         };

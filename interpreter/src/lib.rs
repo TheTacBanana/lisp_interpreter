@@ -92,6 +92,8 @@ impl InterpreterContext {
 
         alloc_func(self, Func::Native("write".into(), std_lib::write));
 
+        alloc_func(self, Func::Native("extern".into(), std_lib::link_external));
+
         alloc_func(self, Func::Native("file->string".into(), std_lib::file_to_string));
         alloc_func(self, Func::Native("string->chars".into(), std_lib::string_to_chars));
         alloc_func(self, Func::Native("string->int".into(), std_lib::string_to_int));
